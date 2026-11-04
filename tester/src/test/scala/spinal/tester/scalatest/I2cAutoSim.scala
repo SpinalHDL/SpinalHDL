@@ -285,6 +285,132 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Dual-master arbitration topology (UM10204 sec. 3.1.8): two
+  // I2cAutoMasters contend on one open-drain bus with one slave per
+  // address. SCL/SDA are ANDs of ALL drivers: any party can pull the
+  // wire Low, nobody can force it High.
+  // ---------------------------------------------------------------------
+  class TestTopDualMaster extends Component {
+    val masterA = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = false, timerWidth = 12))
+    val masterB = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = false, timerWidth = 12))
+    val slaveA  = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64, support10bit = false))
+    val slaveB  = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64, support10bit = false))
+
+    // SCL: open-drain AND of both master drivers (masters are the only SCL drivers)
+    val sclWire = masterA.io.i2c.scl.write && masterB.io.i2c.scl.write
+    sclWire.simPublic()
+    masterA.io.i2c.scl.read := sclWire
+    masterB.io.i2c.scl.read := sclWire
+    slaveA.io.i2c.scl.write := sclWire
+    slaveB.io.i2c.scl.write := sclWire
+
+    // SDA: open-drain AND of both masters + both slaves
+    val sdaWire = masterA.io.i2c.sda.write && masterB.io.i2c.sda.write &&
+                  slaveA.io.i2c.sda.read && slaveB.io.i2c.sda.read
+    sdaWire.simPublic()
+    masterA.io.i2c.sda.read := sdaWire
+    masterB.io.i2c.sda.read := sdaWire
+    slaveA.io.i2c.sda.write := sdaWire
+    slaveB.io.i2c.sda.write := sdaWire
+
+    // Register maps: one Bmb slave port per core
+    val regBusParam = BmbAccessParameter(8, 32).addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2)).toBmbParameter()
+    val masterARegBus = spinal.lib.slave(Bmb(regBusParam))
+    val masterBRegBus = spinal.lib.slave(Bmb(regBusParam))
+    val slaveARegBus  = spinal.lib.slave(Bmb(regBusParam))
+    val slaveBRegBus  = spinal.lib.slave(Bmb(regBusParam))
+    val masterARegMap = BmbSlaveFactory(masterARegBus)
+    val masterBRegMap = BmbSlaveFactory(masterBRegBus)
+    val slaveARegMap  = BmbSlaveFactory(slaveARegBus)
+    val slaveBRegMap  = BmbSlaveFactory(slaveBRegBus)
+    masterA.io.driveFrom(masterARegMap, 0)
+    masterB.io.driveFrom(masterBRegMap, 0)
+    slaveA.io.driveFrom(slaveARegMap, 0)
+    slaveB.io.driveFrom(slaveBRegMap, 0)
+    bmbMark(masterARegBus); bmbMark(masterBRegBus); bmbMark(slaveARegBus); bmbMark(slaveBRegBus)
+
+    // ---- Wire-level conformance guards (UM10204 sec. 3.1.3 / 3.1.4) ----
+    // PURE-WIRE oracle (identical methodology to TestTop): START = SDA fall
+    // while SCL High, STOP = SDA rise while SCL High; any OTHER SDA edge
+    // over SCL-High is a sec. 3.1.3 violation.
+    val sdaWPrev = RegInit(True)
+    val sclWPrev = RegInit(True)
+    val sdaChanged = sdaWire =/= sdaWPrev
+    val wireStart = sdaChanged && sclWire && !sdaWire
+    val wireStop  = sdaChanged && sclWire && sdaWire
+    val startCnt = Reg(UInt(8 bits)) init(0)
+    val stopCnt  = Reg(UInt(8 bits)) init(0)
+    startCnt.simPublic(); stopCnt.simPublic()
+    when(wireStart) { startCnt := startCnt + U(1) }
+    when(wireStop)  { stopCnt  := stopCnt + U(1) }
+    val violArmed = RegInit(False)
+    when(startCnt > U(0)) { violArmed := True }
+    val sdaViolCnt = Reg(UInt(8 bits)) init(0)
+    sdaViolCnt.simPublic()
+    when(sdaChanged && sclWire && !(wireStart || wireStop) && violArmed) {
+      sdaViolCnt := sdaViolCnt + U(1)
+    }
+    sdaWPrev := sdaWire
+    sclWPrev := sclWire
+
+    def addrW: Int = 7
+
+    def cfgMaster(bus: Bmb): Unit = {
+      bmbWrite(bus, 0x24, 1, clockDomain)   // CFG_SAMPDIV
+      bmbWrite(bus, 0x2C, 20, clockDomain)  // CFG_TLOW
+      bmbWrite(bus, 0x30, 20, clockDomain)  // CFG_THIGH
+      bmbWrite(bus, 0x34, 20, clockDomain)  // CFG_TBUF
+    }
+
+    def stageLen(bus: Bmb, len: Int): Unit = {
+      bmbWrite(bus, 0x04, len, clockDomain)
+      bmbWrite(bus, 0x08, 0, clockDomain)
+    }
+
+    def cfgSlave(bus: Bmb, addr: Int): Unit = {
+      bmbWrite(bus, 0x00, (1 << addrW) | addr, clockDomain)  // matchEn=1, 7-bit addr
+    }
+
+    def pushTx(bus: Bmb, data: Int): Unit = {
+      bmbWrite(bus, 0x0C, data, clockDomain)
+    }
+
+    /** CMD word for a plain write transfer (rw=0, no phase2, no nackLast). */
+    def cmdWrite(addr: Int): Int = addr
+
+    /** Issue the CMD trigger to BOTH masters on the SAME cycle so their
+      * START sequences stay bit-phase-aligned (deterministic divergent bit). */
+    def triggerBoth(busA: Bmb, dataA: Int, busB: Bmb, dataB: Int): Unit = {
+      // PRE-ARM: Bmb cmd.ready is registered (it tracks the staged rsp pipeline),
+      // so it can lag rsp consumption by a cycle. Wait for BOTH buses to be ready
+      // with valid deasserted, so nothing fires during arming.
+      busA.rsp.ready #= true
+      busB.rsp.ready #= true
+      var c = 0
+      while ((!busA.cmd.ready.toBoolean || !busB.cmd.ready.toBoolean) && c < 100) {
+        clockDomain.waitActiveEdge(); c += 1
+      }
+      assert(c < 100, "triggerBoth: buses not ready")
+      // SINGLE SHOT: assert both CMD valids for exactly one cycle. Both fire on
+      // the same cycle (phase-aligned START -> deterministic first divergent bit)
+      // and only once (clearing valid kills any re-fire while ready stays High).
+      busA.cmd.valid #= true; busA.cmd.opcode #= 1; busA.cmd.address #= 0x00; busA.cmd.length #= 0
+      busA.cmd.data #= dataA; busA.cmd.mask #= 0xF
+      busB.cmd.valid #= true; busB.cmd.opcode #= 1; busB.cmd.address #= 0x00; busB.cmd.length #= 0
+      busB.cmd.data #= dataB; busB.cmd.mask #= 0xF
+      clockDomain.waitActiveEdge()
+      busA.cmd.valid #= false; busB.cmd.valid #= false
+      // Drain both responses.
+      c = 0
+      while ((!busA.rsp.valid.toBoolean || !busB.rsp.valid.toBoolean) && c < 100) {
+        clockDomain.waitActiveEdge(); c += 1
+      }
+      assert(c < 100, "triggerBoth: no rsp")
+      busA.rsp.ready #= false; busB.rsp.ready #= false
+    }
+  }
+
   def runSim(body: TestTop => Unit): Unit = {
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
       .compile(new TestTop()).doSim { dut =>
@@ -2072,5 +2198,129 @@ class I2cAutoSim extends AnyFunSuite {
           assert(v == 0xEE, f"B.RAM[$i]=0x$v%02X disturbed, expected 0xEE")
         }
       }
+  }
+  // =====================================================================
+  // Dual-master arbitration (UM10204 sec. 3.1.8)
+  // =====================================================================
+  def runSimDualMaster(body: TestTopDualMaster => Unit): Unit = {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualMaster()).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        body(dut)
+      }
+  }
+
+  /** Full arbitration contest: both masters write, same-cycle trigger.
+    * Winner = master driving 0 at the first divergent bit = LOWER address.
+    * Asserts: winner completes unaware (AR-5/6), loser exits passively with
+    * no STOP on the wire (AR-4), winner content lands in order (AR-6),
+    * loser's slave untouched (AR-11), loser retry succeeds once the bus is
+    * free (AR-7). */
+  def contestScenario(dut: TestTopDualMaster, cd: ClockDomain,
+                      aAddr: Int, aPay: Seq[Int], bAddr: Int, bPay: Seq[Int]): Unit = {
+    val aWins = aAddr < bAddr
+    val winM: I2cAutoMaster   = if (aWins) dut.masterA else dut.masterB
+    val loseM: I2cAutoMaster  = if (aWins) dut.masterB else dut.masterA
+    val winBus: Bmb           = if (aWins) dut.masterARegBus else dut.masterBRegBus
+    val loseBus: Bmb          = if (aWins) dut.masterBRegBus else dut.masterARegBus
+    val winPay: Seq[Int]      = if (aWins) aPay else bPay
+    val losePay: Seq[Int]     = if (aWins) bPay else aPay
+    val winAddr: Int          = if (aWins) aAddr else bAddr
+    val retryAddr             = if (aWins) bAddr else aAddr
+    // Slaves are pinned: slaveA @ 0x10, slaveB @ 0x30 (configured below).
+    // The winner's data belongs to the slave at the WINNER'S address — not to
+    // the slave paired with the winning master.
+    val winSlave: I2cAutoSlave = if (winAddr == 0x10) dut.slaveA else dut.slaveB
+    val loseSlave: I2cAutoSlave = if (winAddr == 0x10) dut.slaveB else dut.slaveA
+
+    // Poison both RAMs so any stray write is visible
+    for (i <- 0 until 64) {
+      dut.slaveA.ram.setBigInt(i, 0xEE)
+      dut.slaveB.ram.setBigInt(i, 0xEE)
+    }
+    dut.cfgSlave(dut.slaveARegBus, 0x10)
+    dut.cfgSlave(dut.slaveBRegBus, 0x30)
+    dut.cfgMaster(dut.masterARegBus)
+    dut.cfgMaster(dut.masterBRegBus)
+    aPay.foreach(b => dut.pushTx(dut.masterARegBus, b))
+    bPay.foreach(b => dut.pushTx(dut.masterBRegBus, b))
+    dut.stageLen(dut.masterARegBus, aPay.length)
+    dut.stageLen(dut.masterBRegBus, bPay.length)
+
+    // Same-cycle trigger: phase-aligned STARTs, deterministic first divergent bit
+    dut.triggerBoth(dut.masterARegBus, dut.cmdWrite(aAddr), dut.masterBRegBus, dut.cmdWrite(bAddr))
+
+    // Winner runs to completion unaware (AR-5/6); loser exits passively (AR-4).
+    // Phase 1: wait until the winner actually STARTED (trigger -> acceptance is
+    // registered, so busy lags the trigger by a couple of cycles).
+    var w = 0
+    while (!winM.status.busy.toBoolean && w < 1000) { cd.waitActiveEdge(); w += 1 }
+    assert(winM.status.busy.toBoolean, "winner: transfer never started")
+    // Phase 2: wait for completion.
+    w = 0
+    while (winM.status.busy.toBoolean && w < 200000) { cd.waitActiveEdge(); w += 1 }
+    assert(!winM.status.busy.toBoolean, "winner: transfer did not complete")
+    assert(winM.status.errCode.toInt == 0,
+      s"winner errCode=${winM.status.errCode.toInt} (must be 0: AR-5 winner continues unaware)")
+    assert(loseM.status.errCode.toInt == 4,
+      s"loser errCode=${loseM.status.errCode.toInt} (expected 4=arbLoss)")
+    assert(!loseM.status.busy.toBoolean, "loser must be idle after passive exit")
+
+    // AR-6: no information lost — winner payload lands in order at the winning address
+    for ((exp, i) <- winPay.zipWithIndex) {
+      val v = winSlave.ram.getBigInt(i).toInt
+      assert(v == exp, s"winner RAM[$i]=0x$v%02X expected 0x$exp%02X (AR-6: no information lost)")
+    }
+    // AR-11: slaves are not involved in master-to-master arbitration
+    for (i <- 0 until 64) {
+      val v = loseSlave.ram.getBigInt(i).toInt
+      assert(v == 0xEE, s"loser slave RAM[$i]=0x$v%02X disturbed (AR-11: slaves not involved)")
+    }
+    // Wire frame bookkeeping: 1 shared START, exactly 1 STOP (the winner's —
+    // AR-4: the loser must not issue a STOP)
+    assert(dut.startCnt.toInt == 1, s"startCnt=${dut.startCnt.toInt}, expected 1")
+    assert(dut.stopCnt.toInt == 1, s"stopCnt=${dut.stopCnt.toInt}, expected 1 (AR-4: loser issues no STOP)")
+    assert(dut.sdaViolCnt.toInt == 0,
+      s"sdaViolCnt=${dut.sdaViolCnt.toInt}: SDA edge over SCL-High during contention (sec 3.1.3)")
+
+    // AR-7: the loser restarts when the bus is free and completes alone.
+    // (Its own busBusyExt tracker must have cleared on the winner's STOP;
+    // a stale busy flag would reject the retry with errCode=5.)
+    bmbWrite(loseBus, 0x00, dut.cmdWrite(retryAddr), cd)
+    w = 0
+    while (!loseM.status.busy.toBoolean && w < 1000) { cd.waitActiveEdge(); w += 1 }
+    assert(loseM.status.busy.toBoolean, "loser retry: transfer never started (rejected while bus free?)")
+    w = 0
+    while (loseM.status.busy.toBoolean && w < 200000) { cd.waitActiveEdge(); w += 1 }
+    assert(loseM.status.errCode.toInt == 0,
+      s"loser retry errCode=${loseM.status.errCode.toInt} (expected 0; 5=busyRejected would mean the bus-busy tracker failed to clear)")
+    for ((exp, i) <- losePay.zipWithIndex) {
+      val v = loseSlave.ram.getBigInt(i).toInt
+      assert(v == exp, s"loser retry RAM[$i]=0x$v%02X expected 0x$exp%02X")
+    }
+    assert(dut.startCnt.toInt == 2, s"startCnt=${dut.startCnt.toInt}, expected 2 after retry")
+    assert(dut.stopCnt.toInt == 2, s"stopCnt=${dut.stopCnt.toInt}, expected 2 after retry")
+    assert(dut.sdaViolCnt.toInt == 0, s"sdaViolCnt=${dut.sdaViolCnt.toInt} after retry")
+  }
+
+  test("I2cAuto dual-master: 0x10 vs 0x30 contest, lower address wins (sec 3.1.8 AR-4/5/6/7/11)") {
+    runSimDualMaster { dut =>
+      val cd = dut.clockDomain
+      // masterA -> 0x10 (drives 0 at the first divergent bit, bit5), masterB -> 0x30.
+      // Divergence: byte0 = 0x10 vs 0x30 -> bits 0,0,|1,0|,... first difference at bit5.
+      contestScenario(dut, cd, aAddr = 0x10, aPay = Seq(0xA0, 0xA1), bAddr = 0x30, bPay = Seq(0xB0, 0xB1))
+    }
+  }
+
+  test("I2cAuto dual-master: mirrored contest flips the winner (sec 3.1.8 AR-9 content-based)") {
+    runSimDualMaster { dut =>
+      val cd = dut.clockDomain
+      // Identical topology, addresses swapped: masterA now targets 0x30,
+      // masterB targets 0x10. AR-9: the winner is decided by on-wire CONTENT
+      // (first divergent bit, Low wins), not by instantiation order —
+      // masterB must win despite being the second instance.
+      contestScenario(dut, cd, aAddr = 0x30, aPay = Seq(0xA0, 0xA1), bAddr = 0x10, bPay = Seq(0xB0, 0xB1))
+    }
   }
 }
