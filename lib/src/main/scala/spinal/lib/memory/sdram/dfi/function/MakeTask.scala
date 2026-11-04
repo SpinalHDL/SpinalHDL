@@ -422,7 +422,14 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     // the first command, and Verilog's if(X)=true turns that into a phantom ACT<->PRE storm
     // on the DFI bus (latent in SpinalSim, whose when(X) does not fire; visible in xsim and
     // as a power-on phantom command on real silicon, where FFs power up 0, not X).
-    io.output.active := inputActive & valid
+    // tRP: a PRE on this bank loads its per-bank RP timer; the next ACT on the bank must wait
+    // for it to expire. The per-bank allowActive (!RP.busy) only fed doActive (bookkeeping) —
+    // the output bypassed it, so a row-switch PRE was followed by its ACT 1 MC later (tRP
+    // floor 2). Gate the ACT output on the target bank's allowActive: combinational from the
+    // RP counter (self-expiring -> no deadlock), X-free at t=0 (RP.value is randBoot and
+    // valid is RegInit(False)), and self-consistent because all bank-state bookkeeping keys
+    // off io.output.active itself.
+    io.output.active := inputActive & valid & banks.map(_.allowActive).read(address.bank)
     io.output.precharge := inputPrecharge & valid
     io.output.write := doWrite & valid
     io.output.read := doRead & valid
