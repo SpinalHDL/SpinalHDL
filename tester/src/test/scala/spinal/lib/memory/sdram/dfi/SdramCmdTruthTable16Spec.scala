@@ -120,7 +120,6 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
                                    tPhyRdCslat = 0, tPhyWrCsLat = 0, tWrlvlResp = 16)
     val dfiConfig = DfiConfig(chipSelectNumber = ranks, dataSlice = 1, signalConfig = new DDR4SignalConfig(DfiFunctionConfig(), false),
                               timeConfig = timeConfig, sdram = sdram)
-    val dut = CmdTxd(taskConfig, dfiConfig)
   }
 
   /** Drive one command, return the sampled pins + A10 + full address bus + bank/bg fields. */
@@ -146,7 +145,7 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
     val fr = 2
     val cmdPhase = 0
     val b = build(rowWidth, ranks = 1)
-    SimConfig.compile(b.dut).doSim { dut =>
+    SimConfig.compile(CmdTxd(b.taskConfig, b.dfiConfig)).doSim { dut =>
       dut.clockDomain.forkStimulus(10)
       val cfg = b.dfiConfig
 
@@ -274,7 +273,7 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
     val fr = 2
     val ranks = 2
     val b = build(17, ranks)
-    SimConfig.compile(b.dut).doSim { dut =>
+    SimConfig.compile(CmdTxd(b.taskConfig, b.dfiConfig)).doSim { dut =>
       dut.clockDomain.forkStimulus(10)
       dut.io.task.active #= false
       dut.io.task.write #= false
@@ -297,12 +296,14 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
         dut.clockDomain.waitRisingEdge()
         val c = dut.io.cmd(0).payload
         assert(dut.io.cmd(0).valid.toBoolean, s"PRE cs=$cs: expected a valid command")
-        // csN is packed per phase: phase p owns bits [p*ranks +: ranks]. Active-low one-hot.
-        val ph0 = (c.csN.toBigInt >> 0) & ((1 << ranks) - 1)
-        assert(ph0 == (((1 << ranks) - 1) & ~(1 << cs)), s"PRE cs=$cs: phase0 csN=0x${ph0.toString(16)}, expected one-hot active-low for rank $cs")
+        // DfiCmd.csN is Bits(chipSelectNumber) PER phase (IDFI.scala:6-12); the packing into the
+        // DFI cs vector happens in DfiAlignment, not here. The DES contract at this boundary is
+        // therefore: only the command phase is valid (an invalid phase emits NOP, which the aligner
+        // drives as CS_n HIGH), and the command phase csN is one-hot active-low.
+        val ph0 = c.csN.toBigInt & ((1 << ranks) - 1)
+        assert(ph0 == (((1 << ranks) - 1) & ~(1 << cs)), s"PRE cs=$cs: csN=0x${ph0.toString(16)}, expected one-hot active-low for rank $cs")
         (1 until fr).foreach { p =>
-          val slice = (c.csN.toBigInt >> (p * ranks)) & ((1 << ranks) - 1)
-          assert(slice == (1 << ranks) - 1, s"phase $p must carry DES (all CS_n HIGH) while rank $cs is commanded, got 0x${slice.toString(16)}")
+          assert(!dut.io.cmd(p).valid.toBoolean, s"PRE cs=$cs: phase $p must be invalid (NOP/DES), got valid")
         }
         dut.io.task.precharge #= false
         dut.clockDomain.waitRisingEdge()
