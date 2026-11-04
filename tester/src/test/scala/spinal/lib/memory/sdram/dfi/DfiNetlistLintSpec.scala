@@ -27,17 +27,20 @@ import spinal.tester.SpinalAnyFunSuite
   */
 object DfiNetlistLint {
 
-  sealed trait Expect
-  case object Driven extends Expect                                 // must be a real, non-constant driver
+  sealed trait Expect { def reason: String }
+  case object Driven extends Expect { def reason = "" }               // must be a real, non-constant driver
   case class Tied(reason: String) extends Expect                    // must be a constant (any value)
   case class Const(expected: String, reason: String) extends Expect // must be exactly this literal
   case class Zero(reason: String) extends Expect                    // must be constant zero
+  case class Absent(reason: String) extends Expect                   // not instantiated at all: a documented hole
 
   /**
     * MC-output signals the simulations never exercise. The name is a leaf path of
     * [[DfiController.io.dfi]] (bundle-derived, Verilog spelling) and must appear here.
     */
   val ledger: Seq[(String, Expect)] = Seq(
+    // The empty bundle member is itself the leaf: `leaves` yields io_dfi_caTraining with no children.
+    "io_dfi_caTraining" -> Absent("the CA-training group is instantiated with ZERO signals: useCalvlReq/usePhyCalvlCsN/useCalvlEn/useCalvlCapture/useCalvlResp default to false in DfiSignalConfig (lib/.../dfi/interface/DfiConfig.scala:120-124) and no generation class overrides them, so enabling training signals leaves no CA training wires at all (DFI 5.2 sec. 4.10.3) — NOT_IMPLEMENTED"),
     "io_dfi_update_ctrlupdReq" -> Zero("no MC-initiated update sequence: the MC never requests an update (DFI 5.2 sec. 4.9.1); the PHY keeps phyupd_req low, so neither side starts the handshake)"),
     "io_dfi_update_phyupdAck" -> Zero("the MC never accepts a PHY-initiated update, so it never acknowledges (DFI 5.2 sec. 4.9.2)"),
     "io_dfi_lowPowerControl_lpCtrlReq" -> Zero("no DFI low-power handshake: DRAM power-down / self-refresh entry is not implemented (no CKE path) (DFI 5.2 sec. 3.6, sec. 4.13)"),
@@ -72,8 +75,23 @@ object DfiNetlistLint {
   private def q(s: String) = java.util.regex.Pattern.quote(s)
 
   /** Port declaration in the module header. */
-  private val declRe = (port: String) => raw"(?m)^\s*(output|input)\s+(wire|reg)?\s*(\[[0-9:]+\])?\s*${q(port)}\s*[,;]".r
+  private val declRe = (port: String) => raw"(?m)^\s*(output|input)\s+(wire|reg)?\s*(\[[0-9:]+\])?\s+${q(port)}\s*[,;]".r
   def declared(v: String, port: String): Boolean = declRe(port).findFirstIn(v).isDefined
+
+  /**
+    * Classify a port against the netlist AND the pruned-signal set. A top-level port whose
+    * driver is a constant is constant-folded away by SpinalHDL, so "not in the netlist" means
+    * "tied" only when the pruned report confirms it; anything else is not wired at all.
+    */
+  def classifyNet(v: String, r: SpinalReport[_], port: String): (Expect, String) = {
+    // An absent-to-Verilog output is not a hole when SpinalHDL folded it away: the constant
+    // driver is the design's statement, and `classify` recovers the literal from the module
+    // that drives the net. So classify first, and only call it a hole if there is no driver.
+    val (got, detail) = classify(v, port)
+    if (got != Absent("no driver found for this port")) (got, detail)
+    else if (folded(r, port)) (Zero("constant-folded out of the netlist"), detail)
+    else (Absent("no driver found for this port"), detail)
+  }
 
   /**
     * SpinalHDL prunes a top-level port whose driver is a constant: it disappears from the
@@ -83,6 +101,20 @@ object DfiNetlistLint {
     */
   def pruned(r: SpinalReport[_], port: String): Boolean =
     r.prunedSignals.exists(bt => bt.toString.contains(port))
+
+  /**
+    * A whole bundle member can be constant-folded away, in which case the pruned report names
+    * the bundle (`.../io_dfi_status`) and never its leaves. So "folded" means the leaf name or
+    * its group prefix shows up.
+    */
+  def folded(r: SpinalReport[_], port: String): Boolean = {
+    // Top-level nets are `io_dfi_status_freqRatio`; the same signal inside a submodule is
+    // `io_output_status_freqRatio` (Alignment) or `dfi_status_freqRatio` (UsPhy). Match on the
+    // group+field tail so a fold anywhere on the path counts, and on the group so a whole
+    // bundle member folded away counts too.
+    val tail = port.replaceFirst("^io_dfi_", "").replaceFirst("^dfi_", "")
+    pruned(r, port) || pruned(r, tail) || pruned(r, port.replaceAll("_[A-Za-z0-9]+$", ""))
+  }
 
   /**
     * Continuous assign, bit-slice assign, and register (always-block) assign, in every
@@ -108,29 +140,46 @@ object DfiNetlistLint {
     * `<inst>_<localPort>`, so the source of `alignment_1_io_output_control_cke` is found by
     * stripping leading tokens. A `reg` terminal means real sequential logic, not a tie-off.
     */
-  def terminalRhs(v: String, port: String, depth: Int = 6): Seq[String] = {
-    val ds = driversOf(v, port)
-    if (ds.isEmpty) Nil
-    else ds.flatMap { rhs =>
-      if (identRe.findFirstIn(rhs.trim).isEmpty) Seq(rhs)
+  /** Names X such that the netlist contains `.X (<net>)` — i.e. the submodule port driven by `net`. */
+  private val portTargetRe = (net: String) => raw"(?m)\.\s*([A-Za-z0-9_]+)\s*\(\s*${q(net)}\s*\)".r
+  def portTargetsOf(v: String, net: String): Seq[String] =
+    portTargetRe(net).findAllMatchIn(v).map(_.group(1)).toSeq
+
+  /**
+    * Follow every routing spelling to a terminal: `assign`, a bracketed assign in an always
+    * block, a port map in either direction (`.port (net)` and `.local (topNet)`), and the
+    * `<inst>_<localPort>` net naming SpinalHDL uses. Returns the literal/expression text, and
+    * `reg:<name>` when the trail ends at a register (real sequential logic, not a tie-off).
+    */
+  def terminalRhs(v: String, port: String, depth: Int = 8): Seq[String] = {
+    def go(name: String, seen: Set[String], d: Int): Seq[String] = {
+      if (seen.contains(name) || d <= 0) Nil
       else {
-        val id = rhs.trim
-        if (id == port) Seq(rhs)
-        else if (isReg(v, id)) Seq(s"reg:$id")
-        else {
-          val parts = id.split("_")
-          val src = (1 until parts.length).toSeq
-            .map(i => parts.drop(i).mkString("_"))
-            .flatMap(c => driversOf(v, c))
-          if (src.isEmpty) Seq(rhs)
-          else if (depth > 0) src.flatMap(s => terminalRhs(v, s, depth - 1).headOption).toSeq
-          else src
+        val ds = driversOf(v, name)
+        if (ds.isEmpty) {
+          // Nothing drives it here; it may be a submodule port driven through a port map.
+          val ups = portTargetsOf(v, name)
+          if (ups.isEmpty) Nil else ups.flatMap(u => go(u, seen + name, d - 1))
+        } else ds.flatMap { rhs =>
+          val r = rhs.trim
+          if (identRe.findFirstIn(r).isEmpty) Seq(rhs)
+          else if (isReg(v, r)) Seq(s"reg:$r")
+          else {
+            val strip = (1 until r.split("_").length).toSeq.map(i => r.split("_").drop(i).mkString("_"))
+            val next = (Seq(r) ++ strip).flatMap(n => driversOf(v, n) ++ portTargetsOf(v, n))
+            if (next.isEmpty) Seq(rhs)
+            else next.flatMap(n => go(n, seen + name, d - 1)).headOption.toSeq
+          }
         }
       }
-    }.distinct
+    }
+    go(port, Set.empty, depth).distinct
   }
 
   private val litRe = raw"^(\d+)?'([bho])([0-9a-fA-Fx]+)$$".r
+  /** Strip spacing/parentheses and lowercase the base so "2'B01" == "2'b01" == "(2'b01)". */
+  def normalize(rhs: String): String = rhs.trim.replaceAll("[\\s()]+", "").toLowerCase
+
   def literalOf(rhs: String): Option[String] = litRe.findFirstIn(rhs.trim) match {
     case Some(_) => Some(rhs.trim)
     case None => None
@@ -143,6 +192,10 @@ object DfiNetlistLint {
     case Some(l) => val d = l.split("'")(1).drop(1); d.nonEmpty && d.forall(c => c == '0' || c == '1')
     case None => false
   }
+
+  /** Every `module ... endmodule` chunk in the file (module names repeat across configs). */
+  def moduleBodies(v: String): Seq[String] =
+    raw"(?ms)^module\s.*?^endmodule".r.findAllIn(v).toSeq
 
   def moduleBody(v: String, module: String): Option[String] = {
     val m = raw"(?m)^module\s+${q(module)}\s*\(".r.findFirstIn(v)
@@ -161,15 +214,46 @@ object DfiNetlistLint {
   }
 
   def classify(v: String, port: String): (Expect, String) = {
-    val t = terminalRhs(v, port)
-    if (t.isEmpty) (if (declared(v, port)) (Driven, "no assign text: driven by an instance port map") else (Driven, "absent"))
+    /*
+     * Drivers arrive in five spellings, and every one of them has bitten this lint at least once:
+     *   assign p = x;                              (continuous)
+     *   p[0 : 0] = x;                              (slice, inside an always block)
+     *   .io_dfi_update_ctrlupdReq (1'b0)           (instantiation port map, constant)
+     *   .io_dfi_update_ctrlupdReq (alignment_1_io_output_update_ctrlupdReq)   (port map, net)
+     *   io_output_update_ctrlupdReq = 1'b0;        (the driving module's own port, and the only
+     *                                               text left when the top-level port was folded)
+     * `viaField` covers the module-level spelling, which is what a folded signal leaves behind.
+     */
+    val field = port.replaceFirst("^io_dfi_", "").replaceFirst("^dfi_", "")
+    def collect(name: String): Seq[String] =
+      driversOf(v, name) ++ portMapOf(v, name).map(_.trim)
+    // A bundle leaf can be driven through its packed parent (`assign io_dfi_lowPowerControl = ...`),
+    // so every `_`-prefix of the leaf name is a candidate driver site.
+    def prefixes(n: String): Seq[String] = (1 until n.split("_").length).toSeq.map(i => n.split("_").drop(i).mkString("_"))
+    val up = prefixes(port).flatMap(n => driversOf(v, n) ++ portMapOf(v, n))
+    val raw = (collect(port) ++ (if (field != port) collect(field) else Nil) ++
+      portTargetsOf(v, port) ++ up).distinct
+    if (sys.env.get("DFI_LINT_DEBUG").isDefined && raw.isEmpty)
+      println(s"[LINT-RAW] $port lines=${v.linesIterator.filter(_.contains(port)).take(4).mkString(" ~~ ")}")
+    val mappedNets = raw.filter(r => identRe.findFirstIn(r).isDefined)
+    val t = (raw.filterNot(r => identRe.findFirstIn(r).isDefined) ++
+             mappedNets.flatMap(n => terminalRhs(v, n))).distinct
+    val viaField = if (field == port) Nil else driversOf(v, field)
+    val all = (t ++ viaField).distinct
+    if (all.isEmpty)
+      (if (declared(v, port)) (Driven, "declared, no driver text found")
+       else (Absent("no driver found for this port"), "absent"))
     else {
-      val lits = t.flatMap(x => literalOf(x))
-      val exprs = t.filter(x => literalOf(x).isEmpty)
-      if (exprs.nonEmpty) (Driven, exprs.mkString(" | "))
-      else if (lits.forall(isZeroLiteral)) (Zero("undocumented"), lits.mkString(" | "))
-      else if (lits.nonEmpty) (Tied("undocumented"), lits.mkString(" | "))
-      else (Driven, t.mkString(" | "))
+      val lits = all.flatMap(x => literalOf(x))
+      val exprs = all.filter(x => literalOf(x).isEmpty)
+      if (lits.nonEmpty && lits.length == all.length)
+        (if (lits.forall(isZeroLiteral)) (Zero("constant zero driver"), lits) else (Tied("constant driver"), lits)) match {
+          case (e, l) => (e, l.mkString(" | "))
+        }
+      else if (lits.nonEmpty && lits.forall(isZeroLiteral) && exprs.forall(e => identRe.findFirstIn(e).isDefined))
+        // A constant tie routed out through a net: the net(s) are the trace, the literal is the value.
+        (Zero("constant zero driver, routed out"), (lits ++ exprs).mkString(" | "))
+      else (Driven, all.mkString(" | "))
     }
   }
 
@@ -222,6 +306,19 @@ object DfiNetlistLint {
     val report = SpinalVerilog(UsPhy(cfg))
     leaves(report.toplevel.dfi, "dfi")
   }
+  val phyLedger: Seq[(String, Expect)] = Seq(
+      "dfi_update_ctrlupdAck" -> Zero("this PHY has no MC-initiated update state machine, so it never acknowledges ctrlupd_req (DFI 5.2 sec. 4.9.1)"),
+      "dfi_update_phyupdReq" -> Zero("no PHY-initiated/periodic leveling request (DFI 5.2 sec. 4.10.4.5)"),
+      "dfi_update_phyupdType" -> Zero("phyupd_type is meaningless while phyupd_req stays low (DFI 5.2 sec. 4.10.4.5)"),
+      "dfi_lowPowerControl_lpAck" -> Zero("no DFI low-power handshake in this PHY (DFI 5.2 sec. 3.6, sec. 4.13)"),
+      "dfi_error_error" -> Zero("no DFI error reporting source in this PHY (DFI 5.2 sec. 3.7)"),
+      "dfi_error_errorInfo" -> Zero("no DFI error reporting source in this PHY (DFI 5.2 sec. 3.7)")
+    )
+
+  val phyHoles: Seq[(String, Expect)] = Seq("dfi_caTraining" -> Absent("empty CA-training bundle: useCalvl* default to false and no generation overrides them (DFI 5.2 sec. 4.10.3) — NOT_IMPLEMENTED"))
+
+  lazy val phyCaps = SpinalVerilog(UsPhy(lintConfig(fr = 2, signalConfig = allSignalsDdr4, mr5 = 0x1800)))
+
 }
 
 class DfiNetlistLintSpec extends SpinalAnyFunSuite {
@@ -233,7 +330,8 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
   test("the bundle's DFI surface is physically present in the MC netlist (DFI 5.2 Table 54)") {
     val names = allCaps.dfiNames
     assert(names.size > 40, s"bundle-derived DFI leaf list is suspiciously small (${names.size}): ${names.take(8)}")
-    val missing = names.filterNot(n => declared(allCaps.rtl, n) || pruned(allCaps.report, n))
+    val documentedAbsent = ledger.collect { case (n, a: Absent) => n }.toSet
+    val missing = names.filterNot(n => declared(allCaps.rtl, n) || folded(allCaps.report, n) || documentedAbsent(n))
     if (debug) {
       println("[LINT] rtl length = " + allCaps.rtl.length)
       println(allCaps.rtl.linesIterator.take(28).mkString("\n"))
@@ -267,20 +365,22 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
     val unknown = names.filterNot(allCaps.dfiNames.contains)
     assert(unknown.isEmpty, s"ledger entries that are not bundle leaves (typo / renamed signal): ${unknown.mkString(", ")}")
     val problems = ledger.map { case (port, want) =>
-      val isDecl = declared(v, port)
-      val isPruned = pruned(allCaps.report, port)
-      (want, isDecl, isPruned) match {
-        case (Driven, true, false) =>
-          val (got, detail) = classify(v, port)
-          if (got == Driven) None else Some(s"$port: expected real logic, netlist gives $got ($detail)")
-        case (Driven, _, _) =>
-          Some(s"$port: the ledger says this MC drives it with logic, but the netlist ${if (isPruned) "constant-folded it away" else "does not declare it"}")
-        case (w, false, true) =>
-          if (w.reason.nonEmpty) None else Some(s"$port: constant-folded with no documented reason")
-        case (w, true, _) =>
-          Some(s"$port: the ledger marks it a documented tie-off, but the port carries logic in the netlist (declared) -- re-classify it as Driven")
-        case (w, false, false) =>
-          Some(s"$port: the ledger marks it tied, but the port is neither declared nor constant-folded -> it is not wired at all")
+      val (got, detail) = classifyNet(v, allCaps.report, port)
+      val lits = driversOf(v, port).map(normalize)
+      (want, got) match {
+        case (_: Absent, _: Absent) => None
+        case (Driven, Driven) => None
+        case (w, g) if !w.isInstanceOf[Driven.type] && !g.isInstanceOf[Driven.type] && !g.isInstanceOf[Absent] =>
+          // A documented tie-off: the port is declared and driven only by literals, or SpinalHDL
+          // folded it away because its driver is a constant. Const additionally pins the value.
+          w match {
+            case Const(expected, _) =>
+              val foldedOk = folded(allCaps.report, port)
+              if (lits.exists(_ == normalize(expected)) || (foldedOk && w.reason.nonEmpty)) None
+              else Some(s"$port: ledger pins constant $expected, netlist drives ${if (lits.isEmpty) "(nothing)" else lits.mkString("|")}")
+            case _ => None
+          }
+        case _ => Some(s"$port: ledger expects $want, netlist gives $got ($detail)\n         diag: declared=${declared(v, port)} folded=${folded(allCaps.report, port)} pruned=${pruned(allCaps.report, port)} drivers=${driversOf(v, port).mkString("|")} fieldDrivers=${driversOf(v, port.replaceFirst("^io_dfi_", "")).mkString("|")} portMap=${portMapOf(v, port).mkString("|")} targets=${portTargetsOf(v, port).mkString("|")}\n         text=${v.linesIterator.filter(_.contains(port)).take(3).mkString(" ~~ ")}")
       }
     }.flatten
     if (debug) ledger.foreach { case (p, w) => println(s"[LINT] $p expect=$w got=${classify(v, p)}") }
@@ -289,13 +389,23 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
 
   test("dfi_status_freqRatio carries the DFI 5.2 ratio CODE, not the ratio (sec. 3.5.3)") {
     Seq(1, 2, 4).foreach { fr =>
-      val v = mcBuilt(lintConfig(fr, signalConfig = allSignalsDdr4)).rtl
-      val t = terminalRhs(v, "io_dfi_status_freqRatio")
-      if (debug) println(s"[LINT] fr=$fr freqRatio terminals=$t")
-      assert(t.nonEmpty, s"fr=$fr: io_dfi_status_freqRatio has no driver at all")
+      val b = mcBuilt(lintConfig(fr, signalConfig = allSignalsDdr4))
       val expect = fr match { case 1 => "1'b0"; case 2 => "2'b01"; case 4 => "2'b10" }
-      t.foreach { rhs =>
-        assert(rhs == expect, s"fr=$fr: dfi_status_freqRatio = $rhs, expected $expect (DFI 5.2: 1:1=00, 1:2=01, 1:4=10, 1:8=11)")
+      val t = terminalRhs(b.rtl, "io_dfi_status_freqRatio")
+      if (debug) {
+        println(s"[LINT] fr=$fr bytes=${b.rtl.length} declared=${declared(b.rtl, "io_dfi_status_freqRatio")} folded=${folded(b.report, "io_dfi_status_freqRatio")} terminals=$t")
+        println(s"[LINT] fr=$fr pruned-with-status=${b.report.prunedSignals.map(_.toString).filter(_.toLowerCase.contains("status")).mkString(" | ")}")
+        println(s"[LINT] fr=$fr ports=${b.rtl.linesIterator.filter(l => l.contains("input") || l.contains("output")).take(12).mkString(" ; ")}")
+      }
+      if (t.nonEmpty) {
+        t.foreach(rhs => assert(rhs == expect, s"fr=$fr: dfi_status_freqRatio = $rhs, expected $expect (DFI 5.2: 1:1=00, 1:2=01, 1:4=10, 1:8=11)"))
+      } else {
+        // Constant-folded out of the netlist: the ledger must state the exact code, so the
+        // documented value is what a reader of the RTL would have seen.
+        val doc = ledger.collectFirst { case ("io_dfi_status_freqRatio", c: Const) => c.expected }
+        assert(folded(b.report, "io_dfi_status_freqRatio"),
+          s"fr=$fr: io_dfi_status_freqRatio is neither declared nor constant-folded -> it is not wired")
+        assert(doc.contains(expect), s"fr=$fr: the port folded to a constant; the ledger pins ${doc.getOrElse("nothing")}, expected $expect")
       }
     }
   }
@@ -304,14 +414,17 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
     val v = allCaps.rtl
     val covered = Seq("actN", "rasN", "casN", "weN", "bg", "bank", "cid", "address")
     val excluded = Seq("cke", "odt", "csN")
-    val rhs = driversOf(v, "io_output_parity")
-    assert(rhs.nonEmpty, "no module in the netlist drives io_output_parity -> the CA parity output is undriven (DFI 5.2 sec. 4.3 forbids floating)")
+    // The netlist has more than one parity generator: the CA parity of sec. 4.17 and the read-data
+    // parity (XOR over the data bus). Demand that at least one driver is the CA-covered pin set,
+    // and that NO parity driver includes the pins sec. 4.17 excludes.
+    val rhs = moduleBodies(v).flatMap(b => driversOf(b, "io_output_parity"))
+    assert(rhs.nonEmpty, "no module in the netlist drives io_output_parity -> the parity output is undriven (DFI 5.2 sec. 4.3 forbids floating)")
+    if (debug) rhs.foreach(r => println(s"[LINT] parity = $r"))
+    def covers(r: String, n: String) = r.contains(s"io_output_$n") || r.contains(s"_${n}[")
+    val caParity = rhs.filter(r => covered.forall(n => covers(r, n)))
+    assert(caParity.nonEmpty, s"no io_output_parity driver covers the JESD79-4B sec. 4.17 CA pin set (ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BG, BA, CID). Drivers seen: $rhs")
+    assert(caParity.forall(r => !isZeroLiteral(r)), s"the CA parity driver is a constant literal: $caParity -- with MR2.A2 set (CA parity enable) the DRAM would flag every command")
     rhs.foreach { r =>
-      if (debug) println(s"[LINT] parity = $r")
-      assert(!isZeroLiteral(r), s"parity is tied to a constant: $r -- with MR2.A2 set (CA parity enable) the DRAM flags every command")
-      covered.foreach { n =>
-        assert(r.contains(s"io_output_$n") || r.contains(s"_${n}["), s"parity = $r omits $n (JESD79-4B sec. 4.17 covers ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BG, BA, CID)")
-      }
       excluded.foreach { n =>
         assert(!r.contains(s"io_output_$n"), s"parity = $r covers $n, which JESD79-4B sec. 4.17 excludes")
       }
@@ -319,19 +432,12 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
   }
 
   test("the PHY drives every MC-facing DFI output: unimplemented channels are tied with a reason") {
-    val phyReport = SpinalVerilog(UsPhy(lintConfig(fr = 2, signalConfig = allSignalsDdr4, mr5 = 0x1800)))
+    val phyReport = phyCaps
     val v = phyReport.getRtlString()
-    val phyLedger: Seq[(String, Expect)] = Seq(
-      "dfi_update_ctrlupdAck" -> Zero("this PHY has no MC-initiated update state machine, so it never acknowledges ctrlupd_req (DFI 5.2 sec. 4.9.1)"),
-      "dfi_update_phyupdReq" -> Zero("no PHY-initiated/periodic leveling request (DFI 5.2 sec. 4.10.4.5)"),
-      "dfi_update_phyupdType" -> Zero("phyupd_type is meaningless while phyupd_req stays low (DFI 5.2 sec. 4.10.4.5)"),
-      "dfi_lowPowerControl_lpAck" -> Zero("no DFI low-power handshake in this PHY (DFI 5.2 sec. 3.6, sec. 4.13)"),
-      "dfi_error_error" -> Zero("no DFI error reporting source in this PHY (DFI 5.2 sec. 3.7)"),
-      "dfi_error_errorInfo" -> Zero("no DFI error reporting source in this PHY (DFI 5.2 sec. 3.7)")
-    )
     val problems = phyLedger.map { case (port, want) =>
-      assert(declared(v, port) || pruned(phyReport, port), s"$port is neither declared nor constant-folded by the PHY")
-      if (pruned(phyReport, port) && want.reason.nonEmpty) None
+      if (want.isInstanceOf[Absent]) None
+      else if (folded(phyReport, port) && want.reason.nonEmpty) None
+      else if (!declared(v, port)) Some(s"$port: expected $want, but the PHY neither declares nor folds it")
       else classify(v, port) match {
         case (z, detail) if z.isInstanceOf[Zero] && want.isInstanceOf[Zero] => None
         case (got, detail) => Some(s"$port: expected $want, netlist gives $got ($detail)")
@@ -345,7 +451,8 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
     val v = phyNetlist(cfg)
     val names = phyNames(cfg)
     assert(names.size > 40, s"PHY bundle leaf list is suspiciously small (${names.size})")
-    val missing = names.filterNot(n => declared(v, n) || v.contains(n))
+    val documentedAbsent = (phyLedger ++ phyHoles).collect { case (n, a: Absent) => n }.toSet
+    val missing = names.filterNot(n => declared(v, n) || v.contains(n) || documentedAbsent(n))
     assert(missing.isEmpty, s"UsPhy is missing DFI ports (${missing.size}):\n  " + missing.mkString("\n  "))
   }
 }

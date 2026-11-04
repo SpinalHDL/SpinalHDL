@@ -175,7 +175,7 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
         val pins = Pin(if (c.actN.toBoolean) 1 else 0, if (c.rasN.toBoolean) 1 else 0, if (c.casN.toBoolean) 1 else 0, if (c.weN.toBoolean) 1 else 0)
         if (pins == Pin(1, 0, 1, 1)) throw new AssertionError(s"RFU row emitted (Table 16): pins=$pins address=0x${a.address.toBigInt.toString(16)}")
         Sample(pins, ((a.address.toBigInt >> 10) & 1).toInt, a.address.toBigInt,
-          c.bank.toBigInt.toInt, c.bg.toBigInt.toInt, valids, c.csN.toBigInt)
+          a.bank.toBigInt.toInt, a.bg.toBigInt.toInt, valids, c.csN.toBigInt)
       }
 
       def fire(drive: => Unit): Sample = {
@@ -222,7 +222,7 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
         val r = raw & ((1 << rowWidth) - 1)
         val s = fire { dut.io.task.active #= true; row(r); bank(5) }
         assert(s.pins == actExp(r), s"ACT row=0x${Integer.toHexString(r)} (rowWidth=$rowWidth): pins=${s.pins}, expected ${actExp(r)} (RA16/RA15/RA14 on RAS/CAS/WE, NOTE 1)")
-        assert(s.address == r, s"ACT row=0x${Integer.toHexString(r)}: address bus=0x${Integer.toHexString(s.address)}, expected the full row")
+        assert(s.address == r, s"ACT row=0x${Integer.toHexString(r)}: address bus=0x${Integer.toHexString(s.address.toInt)}, expected the full row")
       }
 
       // ---- address placement (Table 16 columns CA / BG / BA / OP Code) ---------------------
