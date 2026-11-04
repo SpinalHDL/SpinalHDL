@@ -155,6 +155,20 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   if (cfg.useInitStart) dfi.status.initComplete := True
   if (cfg.useAlertN) dfi.status.alertN.setAll()
 
+  // DFI management channels this PHY does not implement must still DRIVE their MC-facing
+  // outputs: an undriven DFI output is a combinatorial hole (SpinalHDL NO DRIVER ON), and the
+  // interface is declared for the whole family. Idle levels per DFI 5.2: a PHY that never
+  // acknowledges an update keeps dfi_ctrlupd_ack low (sec. 4.9.1), never requests periodic
+  // leveling (sec. 4.10.4.5), never acknowledges a low-power request (sec. 3.6 / sec. 4.13),
+  // and reports no error (sec. 3.7 dfi_error / dfi_error_info). The MC side must not drive the
+  // matching requests; the MC's own tie-offs are recorded in DfiNetlistLint's ledger.
+  if (cfg.useCtrlupdAck) dfi.update.ctrlupdAck := False
+  if (cfg.usePhyupdReq) dfi.update.phyupdReq := False
+  if (cfg.usePhyupdType) dfi.update.phyupdType := 0
+  if (cfg.useLpAck) dfi.lowPowerControl.lpAck := False
+  if (cfg.useError) dfi.error.error.clearAll()
+  if (cfg.useErrorInfo) dfi.error.errorInfo.clearAll()
+
   // Parameter axes (ADR-0003). All derived from cfg — no extra external knobs.
   val generation     = cfg.sdram.generation
   val frequencyRatio = cfg.frequencyRatio
