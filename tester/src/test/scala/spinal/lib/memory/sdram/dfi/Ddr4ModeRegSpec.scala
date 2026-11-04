@@ -45,8 +45,10 @@ class Ddr4ModeRegSpec extends SpinalAnyFunSuite {
     assert(burstSequential(mr0), "MR0 A3=0 => sequential burst (Table 11)")
     assert(dllReset(mr0), "MR0 A8=1: the init DLL reset, required by JESD79-4 sec. 3.3 step 12")
     assert(casLatency(mr0) == Some(15), s"MR0 CAS code must decode to CL15, got ${casLatency(mr0)}")
-    assert(additiveLatency(mr0) == 0, "MR0 A5:A4 = 0 => AL=0 (the MC's scheduler assumes AL=0)")
-    assert(encodeCl(15) == (mr0 & 0x1FFF & ~(1 << 8)), "the CL encoder and the default must agree")
+    // AL lives in MR1 A5:A4 (Table 12), NOT in MR0 — MR0 A6:A4,A2 is the CAS Latency field
+    // (Table 2). The scheduler's AL=0 assumption is a statement about MR1, which the MC writes 0.
+    assert(additiveLatency(Ddr4ModeRegs().mr1) == 0, "MR1 A5:A4 = 00 => AL disabled (Table 12); the scheduler assumes AL=0")
+    assert(encodeCl(15) == mr0, "the CL encoder (Table 2 field A6,A5,A4,A2, plus the A8 DLL reset it sets) must reproduce the default MR0")
   }
 
   test("no MR preset sets an RFU bit (Tables 11-15: 'must be programmed to 0 during MRS')") {
@@ -61,8 +63,10 @@ class Ddr4ModeRegSpec extends SpinalAnyFunSuite {
   test("the CAS decoder covers the whole speed-bin map and rejects Reserved codes") {
     val golden = Seq(0x0 -> 9, 0x1 -> 10, 0x2 -> 11, 0x3 -> 12, 0x4 -> 13, 0x5 -> 14, 0x6 -> 15,
                      0x7 -> 16, 0x8 -> 18, 0x9 -> 20, 0xa -> 22, 0xb -> 24)
-    golden.foreach { case (code, cl) => assert(casLatency(code << 4 | (1 << 8)) == Some(cl), s"code $code => CL$cl") }
-    assert(casLatency(0xc << 4 | (1 << 8)).isEmpty, "11xx is Reserved in the speed-bin table")
+    // Table 2 keys the field as the 4-tuple (A6, A5, A4, A2) — not a contiguous slice.
+    def clBits(code: Int) = ((code >> 3) & 1) << 6 | ((code >> 2) & 1) << 5 | ((code >> 1) & 1) << 4 | (code & 1) << 2
+    golden.foreach { case (code, cl) => assert(casLatency(clBits(code) | (1 << 8)) == Some(cl), s"code $code => CL$cl, got ${casLatency(clBits(code) | (1 << 8))}") }
+    assert(casLatency(clBits(0xc) | (1 << 8)).isEmpty, "11xx is Reserved in the speed-bin table")
   }
 
   test("MR1 default keeps write leveling disabled and Qoff off (Table 12)") {
