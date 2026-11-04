@@ -400,9 +400,20 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
     val inputActive = !bankActive
     val inputPrecharge = bankActive && !bankHit
-    val inputAccess = bankActive && bankHit
-    val inputWrite = bankActive && bankHit && write
-    val inputRead = bankActive && bankHit && !write
+    // Tail auto-precharge: after the last data beat, close the row this task left open.
+    // Without it the row stays open until the next task (or the idle tail, 20k+ MC), and
+    // the ACT->PRE gap blows the watchdog's tRAS-max ceiling (9*tREFI). Explicit PRE, not
+    // DFI WRA/RDA: AUTO_PRECHARGE_BIT is cleared in Task2IDFI, and the explicit PRE reuses
+    // the per-bank PRE path (tRP gate included). Gated on the bank's allowPrecharge so the
+    // tRAS-min/WR/RTP tails run out first — the station simply lingers (the timers
+    // self-expire, no deadlock); if the row is already closed (defensive) the tail ends
+    // without a PRE.
+    val inTail = offset > offsetLast
+    val bankAllowPrecharge = banks.map(_.allowPrecharge).read(address.bank)
+    val inputPrechargeTail = inTail && bankActive && bankAllowPrecharge
+    val inputAccess = bankActive && bankHit && !inTail
+    val inputWrite = bankActive && bankHit && !inTail && write
+    val inputRead = bankActive && bankHit && !inTail && !write
 
     val doActive = inputActive && allowActive
     val doPrecharge = inputPrecharge && allowPrecharge
@@ -430,7 +441,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     // valid is RegInit(False)), and self-consistent because all bank-state bookkeeping keys
     // off io.output.active itself.
     io.output.active := inputActive & valid & banks.map(_.allowActive).read(address.bank)
-    io.output.precharge := inputPrecharge & valid
+    io.output.precharge := (inputPrecharge || inputPrechargeTail) & valid
     io.output.write := doWrite & valid
     io.output.read := doRead & valid
     io.output.last := last
@@ -440,7 +451,12 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
     when(doAccess & valid) {
       offset := offset + 1
-      when(last) {
+    }
+    when(inTail & valid) {
+      // Row-close tail: the PRE fires iff the row is open and the bank's allowPrecharge has
+      // expired (inputPrechargeTail); drop the station either way — precharge done this
+      // cycle, or moot because the row was already closed.
+      when(!bankActive || bankAllowPrecharge) {
         valid := False
       }
     }
