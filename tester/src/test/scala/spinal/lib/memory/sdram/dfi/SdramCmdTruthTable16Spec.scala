@@ -310,4 +310,50 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
       }
     }
   }
+
+  // JESD79-4 Table 22 (refresh command truth table) + sec. 4.9 fine-granularity refresh.
+  // Every refresh row shares CS_n=L, ACT_n=H, RAS_n=L, CAS_n=L, WE_n=H; the rows differ only in
+  // the rate field: Fixed rate = A8 '0' (BG0 V); on-the-fly 1x = A8 '1', BG0=L; on-the-fly 2x =
+  // BG0=H, A8:A7:A6=101; on-the-fly 4x = BG0=H, A8:A7:A6=110. REFsb (bank-select refresh) needs a
+  // bank code on the same row.
+  test("refresh: the one Table 22 row the MC can emit, and the rows it has no way to ask for") {
+    val fr = 2
+    val cmdPhase = 0
+    val b = build(17, ranks = 1)
+    SimConfig.compile(CmdTxd(b.taskConfig, b.dfiConfig)).doSim { dut =>
+      dut.clockDomain.forkStimulus(10)
+      Seq(dut.io.task.active, dut.io.task.write, dut.io.task.read, dut.io.task.precharge,
+          dut.io.task.prechargeAll, dut.io.task.refresh, dut.io.task.mrs, dut.io.task.zq).foreach(_ #= false)
+      dut.io.task.address.byte #= 0
+      dut.io.task.address.column #= 0x1FF   // non-zero on purpose: REF must clear the column field
+      dut.io.task.address.bank #= 7         // non-zero on purpose: a fixed-rate REF must not code a bank
+      dut.io.task.address.row #= 0
+      dut.io.task.address.cs #= 0
+      dut.io.task.context #= 0
+      dut.io.task.initCsN #= (1 << b.dfiConfig.chipSelectNumber) - 1
+      dut.clockDomain.waitRisingEdge()
+
+      dut.io.task.refresh #= true
+      dut.clockDomain.waitRisingEdge()
+      val c = dut.io.cmd(cmdPhase).payload
+      val a = dut.io.address(cmdPhase).payload
+      assert(dut.io.cmd(cmdPhase).valid.toBoolean, "a refresh task must emit a command on the command phase")
+      val pins = Pin(if (c.actN.toBoolean) 1 else 0, if (c.rasN.toBoolean) 1 else 0,
+                     if (c.casN.toBoolean) 1 else 0, if (c.weN.toBoolean) 1 else 0)
+      assert(pins == Pin(1, 0, 0, 1), s"REF row (Table 16 + Table 22): CS_n=L, ACT_n=H, RAS_n=L, CAS_n=L, WE_n=H, got $pins")
+      val addr = a.address.toBigInt
+      assert(((addr >> 8) & 1) == 0,
+        s"Table 22: the Fixed-rate refresh row requires A8 = 0; A8=1 is the on-the-fly 1x request. address=0x${addr.toString(16)}")
+      assert(a.bank == null || a.bank.toBigInt == 0,
+        s"Table 22 fixed-rate refresh codes no bank (REFsb needs BG/BA; NOT_IMPLEMENTED: OpTasks has no " +
+        s"per-bank refresh flag, so the station cannot ask for it). bank=${if (a.bank == null) -1 else a.bank.toBigInt}")
+      assert(a.bg == null || a.bg.toBigInt == 0,
+        s"Table 22: on-the-fly 2x/4x set BG0=H with A8:A7:A6 = 101/110. The MC has no rate knob on the " +
+        s"refresh op, so BG0 must stay 0 (fixed 1x); bg=${if (a.bg == null) -1 else a.bg.toBigInt}")
+      assert((addr & 0x3FF) == 0, s"REF must not carry a column address (the DUT clears A9:A0), got 0x${(addr & 0x3FF).toString(16)}")
+      dut.io.task.refresh #= false
+      dut.clockDomain.waitRisingEdge()
+      assert(!dut.io.cmd(cmdPhase).valid.toBoolean, "no task, no command")
+    }
+  }
 }
