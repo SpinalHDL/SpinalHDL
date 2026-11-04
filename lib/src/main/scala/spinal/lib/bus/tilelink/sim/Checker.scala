@@ -265,6 +265,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
         if(checkMapping) idCallback.remove(ctx.a.debugId, ctx)
       }
       case Opcode.D.RELEASE_ACK => {
+        assert(d.param == 0, s"ReleaseAck with reserved param != 0 :\n$d")
         inflightC.remove(d.source) match {
           case Some(c) => doShrink(d.source, c.address, c.param)
           case None => SimError(s"ReleaseAck without outstanding C source ${d.source}")
