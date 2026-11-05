@@ -1144,4 +1144,5 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) e
   override def writeHalt(): Unit = f.writeHalt()
   override def readAddress(): UInt = f.readAddress()  - addressOffset
   override def writeAddress(): UInt = f.writeAddress() - addressOffset
+  override def writeByteEnable(): Bits = f.writeByteEnable()
 }
