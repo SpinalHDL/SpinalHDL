@@ -577,14 +577,45 @@ trait BusSlaveFactory extends Area{
    */
   def driveStream[T <: Data](that: Stream[T], address: BigInt, bitOffset: Int = 0, documentation: String = null): Unit = {
     val wordCount = (bitOffset + widthOf(that.payload) - 1) / busDataWidth + 1
-    onWritePrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
-      when(!that.ready) {
-        writeHalt()
-      }
+    val byteEnable = writeByteEnable()
+    val enable = (byteEnable == null).mux(True, byteEnable.orR)
+    val commit = False
+
+    onWrite(address + (wordCount - 1) * wordAddressInc, documentation) {
+      commit := True
     }
-    val flow = Flow(that.payloadType())
-    driveFlow(flow, address, bitOffset, checkByteEnable = true, documentation = documentation)
-    that << flow.toStream
+
+    if (wordCount == 1){
+      val dispatched = RegInit(True)
+
+      that.valid := False
+      nonStopWrite(that.payload, bitOffset, documentation)
+
+      onWritePrimitive(SingleMapping(address), haltSensitive = false, null) {
+        val valid = enable && dispatched
+        that.valid := valid
+        when(valid && !that.fire) {
+          writeHalt()
+        }
+      }
+
+      dispatched.clearWhen(that.fire).setWhen(commit)
+    } else {
+      assert(bitOffset == 0, "BusSlaveFactory ERROR [driveStream] : BitOffset must be 0 for a multi-word payload")
+
+      val dispatched = RegInit(False)
+
+      that.valid := dispatched
+      driveMultiWord(that.payload, address, documentation)
+
+      onWritePrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
+        when(dispatched && !that.fire) {
+          writeHalt()
+        }
+      }
+
+      dispatched.clearWhen(that.fire).setWhen(commit && enable)
+    }
   }
 
   /**
