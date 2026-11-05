@@ -1,8 +1,40 @@
 package spinal.lib.bus.regif
 
+import spinal.core._
 import spinal.lib._
 
 import scala.collection.{immutable, mutable}
+
+/**
+ * Builds one register of the RegIfRef test DUTs out of fields of the given widths (LSB first), all with the
+ * register's access type. The RegIfRef model works per bit, so it holds for any layout. Width 1 fields are Bool, and
+ * `bitCount` uses the field(BitCount, ...) API, which has its own write logic in RegBase.
+ * Returns each field with its bit range in the register.
+ */
+object RegIfRefFields {
+  // Fields that start mid-byte, sit inside one byte or straddle byte lanes
+  val split = List(1, 2, 7, 3, 4, 15)
+
+  def apply(REG: RegInst, acc: AccessType, layout: Seq[Int], bitCount: Boolean, resetValue: BigInt, hwSet: Bool, hwSetVal: Bits, name: String): Seq[(BaseType, Range)] = {
+    require(layout.sum == hwSetVal.getWidth)
+    layout.zip(layout.scanLeft(0)(_ + _)).zipWithIndex.map { case ((width, lo), k) =>
+      val range     = lo + width - 1 downto lo
+      val fieldName = if (layout.size == 1) name else s"${name}_$k"
+      val rv        = (resetValue >> lo) & ((BigInt(1) << width) - 1)
+      val symbol    = SymbolName(fieldName)
+      val field: BaseType = acc match {
+        case AccessType.HSRW                => REG.fieldHSRW(hwSet, hwSetVal(range), rv, s"${acc}")(symbol)
+        case AccessType.RWHS                => REG.fieldRWHS(hwSet, hwSetVal(range), rv, s"${acc}")(symbol)
+        case _ if bitCount                  => REG.field(width bits, acc, rv, s"${acc}")(symbol)
+        case AccessType.ROV | AccessType.NA => REG.field(Bits(width bit), acc, rv, s"${acc}")(symbol)
+        case _ if width == 1                => REG.field(Bool(), acc, rv, s"${acc}")(symbol)
+        case _                              => REG.field(Bits(width bit), acc, rv, s"${acc}")(symbol)
+      }
+      field.setName(fieldName)
+      (field, range)
+    }
+  }
+}
 
 trait RegIfRef{
   val dw: Int = 32
