@@ -415,14 +415,43 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val inputWrite = bankActive && bankHit && !inTail && write
     val inputRead = bankActive && bankHit && !inTail && !write
 
+    // The write issue gate is evaluated COMBINATORIALLY. The `status` Reg above latches the
+    // same expression one cycle early, and the global timers (CCD, CCD_BG, RTW, cs gaps) load
+    // on the very cycle their command is issued — so the stale registered copy sees the
+    // pre-load (expired) timer state and lets the immediately following cycle through every
+    // margin: effective spacing collapsed to 1 MC cycle, which violates tCCD_L (caught by
+    // DfiTimingWatchdog on DDR4 fr4 back-to-back same-group WRs).
+    // Issue discipline: the registered `status` copy above used to enforce "no two
+    // read/write commands within 1 MC cycle" by force-clearing status.allowRead/allowWrite
+    // on any issue (the `if (CCD != null) when(...)` block above). Evaluating the gates
+    // combinationally (required for tCCD_L/tWTR_S conformance) drops that registered
+    // exclusion, so restate it explicitly: after any READ/WRITE issue, the next READ/WRITE
+    // waits one MC cycle. This is also a HARD interface constraint, not just pacing:
+    // RdDataRxd opens a beatCount-wide sliding rden window per read task (Task2IDFI
+    // io.rden := History(...).orR); read tasks closer than beatCount MC cycles merge their
+    // windows, and the memory side schedules fewer rddata slots than the read needs,
+    // losing trailing beats (DfiController_DDR3_fr2_legacy_wrlvl: 16 back-to-back RDs
+    // drained only 20/32 rsp beats). For beatCount=2 the required spacing is exactly 2;
+    // the CCD timer (loadValue = beatCount-2) is vacuous there, so this exclusion is the
+    // spacing. The register breaks the read->gate->read path, so no combinational loop.
+    val rwIssuedPrev = RegInit(False)
+    rwIssuedPrev := io.output.read | io.output.write
+
+    val allowWriteNow =
+      !rwIssuedPrev && !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy && !wrCsGap &&
+        banks.map(_.allowWrite).read(address.bank)
+
     val doActive = inputActive && allowActive
     val doPrecharge = inputPrecharge && allowPrecharge
-    val doWrite = inputWrite && allowWrite && io.writeDataToken.valid
-    val doRead = inputRead && allowRead
+    val doWrite = inputWrite && allowWriteNow && io.writeDataToken.valid
+    val allowReadNow =
+      !rwIssuedPrev && !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy && !rdCsGap &&
+        banks.map(_.allowRead).read(address.bank)
+    val doRead = inputRead && allowReadNow
     val doAccess = doWrite || doRead
     val doSomething = valid && (doActive || doPrecharge || doWrite || doRead)
 
-    val blockedByWriteToken = inputWrite && allowWrite && !io.writeDataToken.valid // For debug visualisation
+    val blockedByWriteToken = inputWrite && allowWriteNow && !io.writeDataToken.valid // For debug visualisation
 
     val last = offset === offsetLast
     io.output.address.column := address.column | (offset << columnBurstShift).resized
