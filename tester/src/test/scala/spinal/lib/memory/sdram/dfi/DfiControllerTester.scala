@@ -349,6 +349,60 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           val monUseOdt = dut.dfiConfig.signalConfig.useOdt
           val monUseWrCsN = dut.dfiConfig.signalConfig.useWrdataCsN
           val monUseRdCsN = dut.dfiConfig.signalConfig.useRddataCsN
+
+          // R6 independent Table-16 decode cross-check: re-derive every command from the RAW DFI
+          // pins with an independent implementation (DfiCmdDecoder) and log (rank, kind, bankNorm)
+          // per active-CS rank. Registered as onSamplings on the SAME domain as the agent so it
+          // samples the identical settled edges across the WHOLE sim (main + drain + idle). The
+          // agent's decodedCmdLog is compared against this order-aligned sequence after the run;
+          // a divergence or an illegal opcode on an active CS indicates agent-decode drift or a
+          // DUT command outside JESD79-4B Table 16.
+          if (crossCheckDecode) {
+            dut.clockDomain.onSamplings {
+              val cp = dut.dfiConfig.timeConfig.cmdPhase
+              val csNum = dut.dfiConfig.chipSelectNumber
+              val csNAll = dut.io.dfi.control.csN.toLong
+              val ckeAll = dut.io.dfi.control.cke.toLong
+              val actNB = ((dut.io.dfi.control.actN.toLong >> cp) & 1L).toInt
+              val rasB = ((dut.io.dfi.control.rasN.toLong >> cp) & 1L).toInt
+              val casB = ((dut.io.dfi.control.casN.toLong >> cp) & 1L).toInt
+              val weB = ((dut.io.dfi.control.weN.toLong >> cp) & 1L).toInt
+              val addrW = dut.dfiConfig.addressWidth
+              val cmdAddr = (dut.io.dfi.control.address.toLong >> (cp * addrW)) & ((1L << addrW) - 1)
+              val a10B = ((cmdAddr >> 10) & 1L).toInt
+              val bgW = dut.dfiConfig.sdram.bgWidth
+              val bgAll = if (dut.io.dfi.control.bg != null) dut.io.dfi.control.bg.toLong else 0L
+              val cmdBg = (bgAll >> (cp * bgW)) & ((1L << bgW) - 1)
+              val bankW = dut.dfiConfig.bankWidth
+              val cmdBank = (dut.io.dfi.control.bank.toLong >> (cp * bankW)) & ((1L << bankW) - 1)
+              val dfiBankW = dut.dfiConfig.dfiBankWidth
+              def xflatBank(ba: Long): Long = (cmdBg << dfiBankW) | (ba & ((1L << dfiBankW) - 1))
+              val xkind = DfiCmdDecoder.decode(actNB, rasB, casB, weB, a10B)
+              if (xkind != DfiCmdDecoder.Kind.NOP) {
+                var xr = 0
+                while (xr < csNum) {
+                  val xpos = cp * csNum + xr
+                  val xcke = ((ckeAll >> xpos) & 1L) != 0
+                  val xcsn = ((csNAll >> xpos) & 1L) != 0
+                  if (xcke && !xcsn) {
+                    if (xkind == DfiCmdDecoder.Kind.ILLEGAL) {
+                      illegalDecodeCycles += 1
+                      if (illegalDecodeDetail.isEmpty)
+                        illegalDecodeDetail = s"actN=$actNB ras=$rasB cas=$casB we=$weB a10=$a10B"
+                    }
+                    val xbank = xkind match {
+                      case DfiCmdDecoder.Kind.PRE                     => if (a10B == 1) -1L else xflatBank(cmdBank).toLong
+                      case DfiCmdDecoder.Kind.REF | DfiCmdDecoder.Kind.ZQCL => -1L
+                      case DfiCmdDecoder.Kind.MRS                     => (((cmdBg & 1L) << 2) | (cmdBank & 3L)).toLong
+                                                                         case _ => xflatBank(cmdBank).toLong
+                    }
+                    myDecodeLog += ((xr, DfiCmdDecoder.Kind.labels(xkind), xbank))
+                  }
+                  xr += 1
+                }
+              }
+            }
+          }
           var odtMismatchCycles = 0L
           var odtAssertedCycles = 0L
           val monBeatCount = dut.dfiConfig.beatCount
@@ -441,53 +495,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             else if (cas != idleMask) dfiCmdCount += 1
             else if (we != idleMask) dfiCmdCount += 1
             if (dut.io.bmb.cmd.valid.toBoolean && dut.io.bmb.cmd.ready.toBoolean) bmbCmdFireCount += 1
-            // Re-decode the command-phase opcode with an INDEPENDENT Table-16 implementation and log
-            // (rank, kind, bankNorm) per active-CS rank. Compared to the agent's decodedCmdLog after
-            // the sim (order-aligned). Catches agent-decode drift / illegal opcodes on live traffic.
-            if (crossCheckDecode) {
-              val cp = monCsPhase
-              val csNum = monCsNum
-              val csNAll = dut.io.dfi.control.csN.toLong
-              val ckeAll = dut.io.dfi.control.cke.toLong
-              val actNB = ((dut.io.dfi.control.actN.toLong >> cp) & 1L).toInt
-              val rasB = ((ras >> cp) & 1L).toInt
-              val casB = ((cas >> cp) & 1L).toInt
-              val weB = ((we >> cp) & 1L).toInt
-              val addrW = dut.dfiConfig.addressWidth
-              val cmdAddr = (dut.io.dfi.control.address.toLong >> (cp * addrW)) & ((1L << addrW) - 1)
-              val a10B = ((cmdAddr >> 10) & 1L).toInt
-              val bgW = dut.dfiConfig.sdram.bgWidth
-              val bgAll = if (dut.io.dfi.control.bg != null) dut.io.dfi.control.bg.toLong else 0L
-              val cmdBg = (bgAll >> (cp * bgW)) & ((1L << bgW) - 1)
-              val bankW = dut.dfiConfig.bankWidth
-              val cmdBank = (dut.io.dfi.control.bank.toLong >> (cp * bankW)) & ((1L << bankW) - 1)
-              val dfiBankW = dut.dfiConfig.dfiBankWidth
-              def xflatBank(ba: Long): Long = (cmdBg << dfiBankW) | (ba & ((1L << dfiBankW) - 1))
-              val xkind = DfiCmdDecoder.decode(actNB, rasB, casB, weB, a10B)
-              if (xkind != DfiCmdDecoder.Kind.NOP) {
-                var xr = 0
-                while (xr < csNum) {
-                  val xpos = cp * csNum + xr
-                  val xcke = ((ckeAll >> xpos) & 1L) != 0
-                  val xcsn = ((csNAll >> xpos) & 1L) != 0
-                  if (xcke && !xcsn) {
-                    if (xkind == DfiCmdDecoder.Kind.ILLEGAL) {
-                      illegalDecodeCycles += 1
-                      if (illegalDecodeDetail.isEmpty)
-                        illegalDecodeDetail = s"c=$c actN=$actNB ras=$rasB cas=$casB we=$weB a10=$a10B"
-                    }
-                    val xbank = xkind match {
-                      case DfiCmdDecoder.Kind.PRE            => if (a10B == 1) -1L else xflatBank(cmdBank).toLong
-                      case DfiCmdDecoder.Kind.REF | DfiCmdDecoder.Kind.ZQCL => -1L
-                      case DfiCmdDecoder.Kind.MRS            => (((cmdBg & 1L) << 2) | (cmdBank & 3L)).toLong
-                                                              case _ => xflatBank(cmdBank).toLong
-                    }
-                    myDecodeLog += ((xr, DfiCmdDecoder.Kind.labels(xkind), xbank))
-                  }
-                  xr += 1
-                }
-              }
-            }
+            // (independent Table-16 decode cross-check moved to an onSamplings below, so it
+            //  samples the same settled edges as the agent across the whole sim incl. drain/idle)
             // ---- ODT monitor: assert the exact combinational relation, every cycle, all phases ----
             if (monUseOdt) {
               val odtAll = dut.io.dfi.control.odt.toLong
@@ -738,7 +747,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               s"$name: [XDECODE] independent decoder flagged $illegalDecodeCycles illegal opcode(s) on an active CS (first: $illegalDecodeDetail) - the DUT emitted a command outside Table 16")
             assert(mineSeq.size == agentSeq.size,
               s"$name: [XDECODE] size mismatch: independent=${mineSeq.size} agent=${agentSeq.size} (first8 independent=${mineSeq.take(8)}, agent=${agentSeq.take(8)})")
-            val diffIdx = (mineSeq zip agentSeq).indexWhere(_ != _)
+            val diffIdx = (0 until math.min(mineSeq.size, agentSeq.size)).find(i => mineSeq(i) != agentSeq(i))
             assert(!diffIdx.isDefined,
               s"$name: [XDECODE] mismatch at #${diffIdx.getOrElse(-1)}: independent=${if (diffIdx.isDefined) mineSeq(diffIdx.get) else "?"} agent=${if (diffIdx.isDefined) agentSeq(diffIdx.get) else "?"}")
             println(s"[XDECODE] $name: independent decode cross-check OK (${mineSeq.size} commands, 0 illegal)")
