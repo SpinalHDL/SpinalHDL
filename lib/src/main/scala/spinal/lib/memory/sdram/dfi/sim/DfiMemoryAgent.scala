@@ -44,6 +44,12 @@ class DfiMemoryAgent(
   val useRdDbi = busConfig.useRdDbi
   val bgWidth = if (modernCmdBus) busConfig.sdram.bgWidth else 0
   val dfiBankWidth = busConfig.dfiBankWidth
+  // Cross-check export (independent decode): every decoded command as (rank, kindLabel,
+  // bankNorm), populated in lockstep with the [AGENTCMD] prints below. Consumed by
+  // DfiControllerTester's DfiCmdDecoder cross-check ([XDECODE]); the decoder itself is pinned
+  // by DfiCmdDecoderSpec. bankNorm follows the [AGENTCMD] convention: flatBank for
+  // ACT/WR/RD/PRE, -1 for PREA/REF/ZQCL, MRSEL index for MRS.
+  val decodedCmdLog = scala.collection.mutable.ArrayBuffer[(Int, String, Long)]()
   // DDR4 mode-register file: MR0..MR4 per rank (op code as written by MRS), plus flags.
   // DRAM-side AC-timing watchdog: consumes THIS agent's independent Table 16 decode and asserts
   // the JESD79-4B sec. 4.19 minima/maxima derived from the SdramTiming ns fields. The test
@@ -469,13 +475,20 @@ class DfiMemoryAgent(
       // ---- DDR4 CA parity check (DRAM-side model, see useCaParity comment above) ----
       // Even parity: the parity bit equals the XOR of the covered pins, so pins+parity have an
       // even count of ones. Expected parity is recomputed here from the cmdPhase bus slices,
-      // independently of the DUT's RTL XOR tree. Coverage: actN/ras/cas/weN + cid + bg + bank +
-      // address. Idle phases XOR to 0 (cid/addr/bank/bg idle 0, act_n/ras/cas/we idle 1).
+      // independently of the DUT's RTL XOR tree. Coverage: actN/ras/cas/weN + bg + bank +
+      // A13..A0 (the low 14 address bits). A16/A15/A14 are the RAS/CAS/WE pins and are NOT
+      // re-counted from the address bus (on ACT the address bus duplicates them in its top bits,
+      // so counting the full width would double-count and cancel the ACT row's top three bits).
+      // CID (C0-C2 die-select) IS covered per §4.17 for 3DS/stacked devices. Idle phases XOR to 0
+      // (addr/bank/bg idle 0,
+      // act_n/ras/cas/we idle 1, four 1s -> 0).
       var cmdDropped = false
       if (useCaParity) {
+        val bankSlice = (ctrl.bank.toLong >> (cmdPhase * bankWidth)) & ((1L << bankWidth) - 1)
         val cidW = busConfig.chipIdWidth
         val cidSlice = ((ctrl.cid.toBigInt.asInstanceOf[BigInt] >> (cmdPhase * cidW)) & ((BigInt(1) << cidW) - 1)).toInt
-        val bankSlice = (ctrl.bank.toLong >> (cmdPhase * bankWidth)) & ((1L << bankWidth) - 1)
+        val addrCoveredW = Math.min(14, busConfig.addressWidth) // A13..A0 only; A16/A15/A14 come from RAS/CAS/WE
+        val addrCovered = cmdAddr & ((1L << addrCoveredW) - 1)
         var received = parityProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
         if (parityCorruptCycle >= 0 && agentCycle >= parityCorruptCycle && csN.forall(b => b)) {
           received = !received
@@ -485,7 +498,7 @@ class DfiMemoryAgent(
         val ones =
           (if (actN) 1 else 0) + (if (ras) 1 else 0) + (if (cas) 1 else 0) + (if (weN) 1 else 0) +
             Integer.bitCount(cidSlice) + Integer.bitCount(cmdBg.toInt) +
-            java.lang.Long.bitCount(bankSlice) + java.lang.Long.bitCount(cmdAddr)
+            java.lang.Long.bitCount(bankSlice) + java.lang.Long.bitCount(addrCovered)
         val expected = (ones & 1) == 1 // parity bit completes pins+parity to an even count
         if (received != expected) {
           cmdDropped = true
@@ -527,24 +540,36 @@ class DfiMemoryAgent(
         watchdog.observe(idPerChip, agentCycle, act, preCmd && a10 == 0L, preCmd && a10 == 1L,
           wrCmd, rdCmd, refCmd, mrs, zqcl, flatBank(cmdBank).toInt, cmdBg.toInt)
 
-        // Dual-path verification: export every decoded DDR4 command (with its rank) so an
-        // independent decoder (Python, straight from JESD79-4B Table 16) can be diffed against it.
+        // Cross-check export: dump every decoded DDR4 command (with its rank) in a stable
+        // [AGENTCMD] format so an EXTERNAL, independent decoder (e.g. a Python re-encoding of
+        // JESD79-4B Table 16) can be diffed against it offline. NOTE: there is NO in-repo
+        // consumer of this trace today (grep AGENTCMD *.py -> empty) — it is producer-only.
+        // Command-encoding correctness is currently guaranteed by SdramCmdTruthTable16Spec
+        // (independent pin sampling), not by this dump.
         def hex(v: Long) = java.lang.Long.toHexString(v)
         if (mrs) {
           val mr = ((cmdBg & 1L) << 2) | (cmdBank & 3L)
           println(s"[AGENTCMD] $agentCycle r$idPerChip MRS $mr ${hex(cmdAddr)}")
+          decodedCmdLog += ((idPerChip, "MRS", mr.toLong))
         }
         if (act) println(s"[AGENTCMD] $agentCycle r$idPerChip ACT ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (act) decodedCmdLog += ((idPerChip, "ACT", flatBank(cmdBank).toLong))
         if (wrCmd) println(s"[AGENTCMD] $agentCycle r$idPerChip WR ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (wrCmd) decodedCmdLog += ((idPerChip, "WR", flatBank(cmdBank).toLong))
         if (rdCmd) println(s"[AGENTCMD] $agentCycle r$idPerChip RD ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (rdCmd) decodedCmdLog += ((idPerChip, "RD", flatBank(cmdBank).toLong))
         if (preCmd) {
           // A10=H is PREA (all banks): the bank field is don't-care, export -1 so the
           // independent decoder can match without comparing garbage bank bits.
           if (a10 == 1L) println(s"[AGENTCMD] $agentCycle r$idPerChip PRE -1 -1")
           else println(s"[AGENTCMD] $agentCycle r$idPerChip PRE ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+          if (a10 == 1L) decodedCmdLog += ((idPerChip, "PRE", -1L))
+          else decodedCmdLog += ((idPerChip, "PRE", flatBank(cmdBank).toLong))
         }
         if (refCmd) println(s"[AGENTCMD] $agentCycle r$idPerChip REF -1 -1")
+        if (refCmd) decodedCmdLog += ((idPerChip, "REF", -1L))
         if (zqcl) println(s"[AGENTCMD] $agentCycle r$idPerChip ZQCL -1 -1")
+        if (zqcl) decodedCmdLog += ((idPerChip, "ZQCL", -1L))
 
         // Traffic before the init sequence (MRS file + ZQCL) is a controller bug: a DDR4 SDRAM
         // ignores commands until its mode registers and ZQ calibration are set up.
@@ -614,7 +639,7 @@ class DfiMemoryAgent(
       // else the generation's built-in preset via SdramInitStep.defaultFor) — the init-aware
       // decodes/asserts must be on exactly when the DUT actually plays an init micro-program.
       val legacyInitAware = busConfig.initSteps
-        .getOrElse(SdramInitStep.defaultFor(busConfig.sdram.generation, busConfig.ddr4ModeRegs))
+        .getOrElse(SdramInitStep.defaultFor(busConfig.sdram.generation, busConfig.ddr4ModeRegs, fr = busConfig.frequencyRatio))
         .nonEmpty
       // ZQCL rides A10 (0x400); only meaningful when a ZQ step exists (DDR2 presets have none).
       val a10 = (cmdAddr >> 10) & 1L

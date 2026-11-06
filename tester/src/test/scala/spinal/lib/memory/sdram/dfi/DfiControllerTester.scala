@@ -67,7 +67,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       // from them), hence the shared val.
       val ddr4ModeRegs = if (generation == SdramGeneration.DDR4) Ddr4ModeRegs(mr4 = mr4, mr5 = mr5) else Ddr4ModeRegs()
       val effectiveInitSteps = if (initSteps.nonEmpty) initSteps
-                               else SdramInitStep.defaultFor(generation, ddr4ModeRegs)
+                               else SdramInitStep.defaultFor(generation, ddr4ModeRegs, fr = frequencyRatio)
       assert(!useCtrlMsg || generation == SdramGeneration.DDR4, "ctrlmsg training cases are DDR4-only")
       assert(
         !useLegacyWrLvl || generation == SdramGeneration.DDR2 || generation == SdramGeneration.DDR3,
@@ -336,6 +336,13 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           // exactly every cycle. The write-gap monitor measures the min spacing between
           // consecutive write commands at the command phase and compares it to the floor the
           // scheduler must enforce when a CS switch is possible (multi-CS + gap>0).
+          // ---- independent command-decode cross-check state (DfiCmdDecoder vs DfiMemoryAgent) ----
+          // DDR4-only (modern command bus) and off for the parity-injection case (a parity-dropped
+          // command desyncs the two logs: the agent skips it, the raw-pin decoder would not).
+          val crossCheckDecode = (generation == SdramGeneration.DDR4) && !injectParityError
+          val myDecodeLog = scala.collection.mutable.ArrayBuffer[(Int, String, Long)]()
+          var illegalDecodeCycles = 0L
+          var illegalDecodeDetail = ""
           val monCsNum = dut.dfiConfig.chipSelectNumber
           val monFr = dut.dfiConfig.frequencyRatio
           val monCsPhase = dut.dfiConfig.timeConfig.cmdPhase
@@ -434,6 +441,53 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             else if (cas != idleMask) dfiCmdCount += 1
             else if (we != idleMask) dfiCmdCount += 1
             if (dut.io.bmb.cmd.valid.toBoolean && dut.io.bmb.cmd.ready.toBoolean) bmbCmdFireCount += 1
+            // Re-decode the command-phase opcode with an INDEPENDENT Table-16 implementation and log
+            // (rank, kind, bankNorm) per active-CS rank. Compared to the agent's decodedCmdLog after
+            // the sim (order-aligned). Catches agent-decode drift / illegal opcodes on live traffic.
+            if (crossCheckDecode) {
+              val cp = monCsPhase
+              val csNum = monCsNum
+              val csNAll = dut.io.dfi.control.csN.toLong
+              val ckeAll = dut.io.dfi.control.cke.toLong
+              val actNB = ((dut.io.dfi.control.actN.toLong >> cp) & 1L).toInt
+              val rasB = ((ras >> cp) & 1L).toInt
+              val casB = ((cas >> cp) & 1L).toInt
+              val weB = ((we >> cp) & 1L).toInt
+              val addrW = dut.dfiConfig.addressWidth
+              val cmdAddr = (dut.io.dfi.control.address.toLong >> (cp * addrW)) & ((1L << addrW) - 1)
+              val a10B = ((cmdAddr >> 10) & 1L).toInt
+              val bgW = dut.dfiConfig.sdram.bgWidth
+              val bgAll = if (dut.io.dfi.control.bg != null) dut.io.dfi.control.bg.toLong else 0L
+              val cmdBg = (bgAll >> (cp * bgW)) & ((1L << bgW) - 1)
+              val bankW = dut.dfiConfig.bankWidth
+              val cmdBank = (dut.io.dfi.control.bank.toLong >> (cp * bankW)) & ((1L << bankW) - 1)
+              val dfiBankW = dut.dfiConfig.dfiBankWidth
+              def xflatBank(ba: Long): Long = (cmdBg << dfiBankW) | (ba & ((1L << dfiBankW) - 1))
+              val xkind = DfiCmdDecoder.decode(actNB, rasB, casB, weB, a10B)
+              if (xkind != DfiCmdDecoder.Kind.NOP) {
+                var xr = 0
+                while (xr < csNum) {
+                  val xpos = cp * csNum + xr
+                  val xcke = ((ckeAll >> xpos) & 1L) != 0
+                  val xcsn = ((csNAll >> xpos) & 1L) != 0
+                  if (xcke && !xcsn) {
+                    if (xkind == DfiCmdDecoder.Kind.ILLEGAL) {
+                      illegalDecodeCycles += 1
+                      if (illegalDecodeDetail.isEmpty)
+                        illegalDecodeDetail = s"c=$c actN=$actNB ras=$rasB cas=$casB we=$weB a10=$a10B"
+                    }
+                    val xbank = xkind match {
+                      case DfiCmdDecoder.Kind.PRE            => if (a10B == 1) -1L else xflatBank(cmdBank).toLong
+                      case DfiCmdDecoder.Kind.REF | DfiCmdDecoder.Kind.ZQCL => -1L
+                      case DfiCmdDecoder.Kind.MRS            => (((cmdBg & 1L) << 2) | (cmdBank & 3L)).toLong
+                                                              case _ => xflatBank(cmdBank).toLong
+                    }
+                    myDecodeLog += ((xr, DfiCmdDecoder.Kind.labels(xkind), xbank))
+                  }
+                  xr += 1
+                }
+              }
+            }
             // ---- ODT monitor: assert the exact combinational relation, every cycle, all phases ----
             if (monUseOdt) {
               val odtAll = dut.io.dfi.control.odt.toLong
@@ -672,6 +726,23 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               assert(!dut.caParityError.toBoolean, s"${name}: caParityError latched without any parity error")
             }
           }
+          // ---- independent command-decode cross-check: DfiCmdDecoder vs DfiMemoryAgent ----
+          // The decoder re-derived every command from the raw DFI pins with an independent Table-16
+          // implementation; the agent decoded the same pins with its own boolean chain. Both must
+          // yield the identical ordered (rank, kind, bank) sequence, and neither may see an illegal
+          // opcode on an active CS. Order-aligned, so a uniform sampler cycle-offset cannot fake a mismatch.
+          if (crossCheckDecode) {
+            val agentSeq = dfiMemoryAgent.decodedCmdLog.toList
+            val mineSeq = myDecodeLog.toList
+            assert(illegalDecodeCycles == 0,
+              s"$name: [XDECODE] independent decoder flagged $illegalDecodeCycles illegal opcode(s) on an active CS (first: $illegalDecodeDetail) - the DUT emitted a command outside Table 16")
+            assert(mineSeq.size == agentSeq.size,
+              s"$name: [XDECODE] size mismatch: independent=${mineSeq.size} agent=${agentSeq.size} (first8 independent=${mineSeq.take(8)}, agent=${agentSeq.take(8)})")
+            val diffIdx = (mineSeq zip agentSeq).indexWhere(_ != _)
+            assert(!diffIdx.isDefined,
+              s"$name: [XDECODE] mismatch at #${diffIdx.getOrElse(-1)}: independent=${if (diffIdx.isDefined) mineSeq(diffIdx.get) else "?"} agent=${if (diffIdx.isDefined) agentSeq(diffIdx.get) else "?"}")
+            println(s"[XDECODE] $name: independent decode cross-check OK (${mineSeq.size} commands, 0 illegal)")
+          }
           // DFI 5.2 ctrlmsg end-of-run checks (only for ctrlmsg configs; inert otherwise).
           if (useCtrlMsg && !bootEnabled) {
             println(
@@ -817,6 +888,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       fr: Int,
       phase: Int,
       map: AddrMap,
+      csNum: Int = 2,
+      rowWidth: Int = 13,
       csN: Boolean = false,
       mr5: Int = 0x0000,
       mr4: Int = 0x0000,
@@ -830,7 +903,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       bootTraining: Boolean = false
   ): Unit =
     runDfiControllerTest(
-      name, SdramGeneration.DDR4, fr, phase, 0, 2, 13, map,
+      name, SdramGeneration.DDR4, fr, phase, 0, csNum, rowWidth, map,
       useCsN = csN, bgWidth = 1, cidWidth = 1, bankWidth = 4,
       sdramTiming = if (timing != null) timing else ddr4Timing,
       mr5 = mr5, mr4 = mr4, refreshMinCount = refreshMinCount, idleCycles = idleCycles,
@@ -858,6 +931,12 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // Injection: the parity bit as seen at the DRAM is flipped on an idle cycle (cycle >= 5000);
   // the agent must raise ALERT_n and the DUT must latch caParityError, with data flow intact.
   ddr4("DfiController_DDR4_fr2_caparity_inject", 2, 0, RowBankColumn, mr5 = 0x0001, caParity = true, injectParityError = true)
+  // Regression for the ACT CA-parity double-count (B2): at rowWidth>=15 the ACT row's top bits
+  // (RA14/RA15/RA16) ride BOTH the RAS/CAS/WE pins and the address bus. The parity must count
+  // each bit exactly once (A16/A15/A14 from RAS/CAS/WE, A13..A0 from the address bus); with the
+  // old full-width address term they cancelled and ~50% of ACTs raised a spurious ALERT_n.
+  // csNum=1 keeps byteAddressWidth+log2Up(cs)=30 < 31 for the Int address generator at rowWidth=15.
+  ddr4("DfiController_DDR4_fr2_caparity_hirow", 2, 0, RowBankColumn, mr5 = 0x0001, caParity = true, csNum = 1, rowWidth = 15)
   // DFI 5.2 ctrlmsg training channel (Table 37 signals / Table 38 timing), code 0x04 = Write Leveling (Table 51):
   // driven mid-run while BMB traffic is quiesced; the agent acks within tctrlmsg_resp (delay 0),
   // the training-window traffic ban must hold (spawn/refresh paused), trainDone pulses,
