@@ -111,7 +111,7 @@ case class SdramConfig(
   def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerWord)
   def bytePerWord = dataWidth / 8
   def columnSize = 1 << columnWidth
-  def ddrStartDelay = 600000 / (1000 / ddrMHZ) // 600uS
+  def ddrStartDelay = 600 * ddrMHZ // 600uS, exact for any ddrMHZ (was 600000/(1000/ddrMHZ), int-div wrong at non-divisor rates)
 
   def tREF = {
     val base = if (sdramtime.REF_NS != 0) timeCycle(sdramtime.REF_NS, cycleTime_ns)
@@ -163,9 +163,13 @@ case class SdramConfig(
 
   def tFAW = timeCycle(sdramtime.FAW, cycleTime_ns)
 
-  def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
+  // Floating-point ns->cycle conversion: integer division truncated the cycle time to 0
+  // for ddrMHZ > 1000 (e.g. DDR4-3200 @1600 MHz) and caused divide-by-zero in timeCycle/
+  // ddrStartDelay at elaboration. ceil() keeps the worst-case (largest) cycle count.
 
-  def cycleTime_ns = 1000 / ddrMHZ
+  def timeCycle(time: Int, cycTime: Double): Int = math.ceil(time.toDouble / cycTime).toInt
+
+  def cycleTime_ns = 1000.0 / ddrMHZ
 
   def tPhyWrlat = ddrWrLat - 2
   def tRddataEn = ddrRdLat - 2

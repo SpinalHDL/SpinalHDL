@@ -33,7 +33,7 @@ import spinal.tester.code.SpinalAnyFunSuite
   *   tWTR_S 4 nCK; tWTR_L 8 nCK
   *   tRTP   12 nCK (BL8)
   *   tCCD_S 8 nCK (4 nCK at >= 3200 MT/s); tCCD_L 10 nCK (5 nCK at >= 3200, MR6 tCCD_L bits)
-  *   tMRD   14 ns; tMOD 14 ns (min 4 nCK)
+  *   tMRD   8 nCK; tMOD max(24 nCK, 15 ns)
   *   tXPR   max(tXS, 5 nCK), 200 us after RESET_n de-assertion before the first MRS (sec. 3.3)
   *   tZQinit 1024 nCK, tZQoper 512 nCK, tZQCS 128 nCK (sec. 4.12); tDLLK 512 nCK
   */
@@ -125,8 +125,9 @@ class SdramTimingSpec extends SpinalAnyFunSuite {
     }
     // tXPR: 200 us from RESET_n de-assertion to the first MRS (sec. 3.3 step 5) -> 40000 DRAM
     // cycles at 200 MHz; the DDR4 preset's first-step spacing must not be shorter than tMRD.
+    // tMRD = 8 nCK (JESD79-4B, flat) -> 4 MC cycles at fr=2.
     val cfg = Ddr4Cfg(fr = 2, rate = 2)
-    val tMrdMinMc = math.ceil(14.0 / cfg.sdram.cycleTime_ns / 2).toInt
+    val tMrdMinMc = math.ceil(8.0 / 2).toInt
     assert(4 >= tMrdMinMc, s"the preset spaces MRS writes by 4 MC cycles, tMRD floor at this rate is $tMrdMinMc")
   }
 }
@@ -143,7 +144,7 @@ object SdramTimingSpec {
   case class Golden(tRASns: Double, tRASmaxCycles: Int, tRCDns: Double, tRPns: Double, tRCns: Double,
                     tREFIns: Double, tRFCns: Double, tRRD_Snck: Int, tRRD_Lnck: Int, tFAWns: Double,
                     tWTR_Snck: Int, tWTR_Lnck: Int, tRTPnck: Int, tCCD_Snck: Int, tCCD_Lnck: Int,
-                    tMRDns: Double, tMODns: Double) {
+                    tMRDnck: Int, tMODnck: Int) {
     def nsOf(name: String): Double = name match {
       case "tRAS" => tRASns
       case "tRCD" => tRCDns
@@ -180,8 +181,8 @@ object SdramTimingSpec {
       tRTPnck = 12,
       tCCD_Snck = 8,
       tCCD_Lnck = 10,
-      tMRDns = 14.0,
-      tMODns = 14.0
+      tMRDnck = 8,
+      tMODnck = 24
     )
   }
 }

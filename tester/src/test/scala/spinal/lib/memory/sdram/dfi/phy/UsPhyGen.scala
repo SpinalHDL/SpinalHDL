@@ -21,7 +21,9 @@ object UsPhyGen {
     )
     val timeConfig = DfiTimeConfig(
       frequencyRatio = 2, cmdPhase = 0,
-      tPhyWrLat = sdram.tPhyWrlat, tPhyWrData = 2,
+      // tPhyWrData = 0: UsPhy samples dfi_wrdata in lockstep with dfi_wrdata_en
+      // (its write path implements only tPhyWrData == 0 — see the UsPhy require).
+      tPhyWrLat = sdram.tPhyWrlat, tPhyWrData = 0,
       tPhyWrCsGap = 3, tRddataEn = sdram.tRddataEn,
       tPhyRdlat = 1, tPhyRdCsGap = 3, tPhyRdCslat = 0, tPhyWrCsLat = 0,
       tWrlvlResp = 16

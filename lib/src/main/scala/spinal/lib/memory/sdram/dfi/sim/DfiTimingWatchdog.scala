@@ -55,8 +55,8 @@ class DfiTimingWatchdog(cfg: DfiConfig, verbose: Boolean = sys.env.get("DFI_TIMI
   val tCCD_Lmc = mcOfDram(sdram.generation.tCCD_L)
   val tCCD_Smc = mcOfDram(sdram.generation.tCCD_S)
   val tRTWmc = mcOfDram(sdram.tRTW)
-  val tMRDmc = mcOfNs(14.0) // JESD79-4B: tMRD = 14 ns
-  val tMODmc = mcOfNs(14.0) // JESD79-4B: tMOD = max(14 ns, 4 nCK)
+  val tMRDmc = mcOfDram(8) // JESD79-4B: tMRD = 8 nCK (flat, no ns floor)
+  val tMODmc = math.max(mcOfDram(24), mcOfNs(15.0)) // JESD79-4B: tMOD = max(24 nCK, 15 ns)
   val tZQCLmc = mcOfDram(512) // tZQoper = 512 nCK (tZQinit = 1024 nCK covers the init ZQ)
   val tREFImc = mcOfNs((if (sdram.sdramtime.REF_NS != 0) sdram.sdramtime.REF_NS
                         else sdram.sdramtime.REF * 1000.0) / sdram.sdramtime.REF_RATE)

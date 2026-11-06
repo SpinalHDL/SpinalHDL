@@ -67,14 +67,18 @@ case class CAAlignment(config: DfiConfig) extends Component {
     }
   }
 
-  // DDR4 CA parity (JESD79-4B §4.17): even parity = XOR of every covered CA pin of that phase,
+  // DDR4 CA parity (JESD79-4B §4.17): even parity = XOR of every COVERED CA pin of that phase,
   // computed from the values actually driven on the bus this cycle (command phases use the
-  // command values, NOP phases the idle defaults — idle XORs to 0 because cid/address/bank/bg
-  // idle at 0 and act_n/ras/cas/we idle at 1). Coverage set: ACT_n, RAS_n/A16, CAS_n/A15,
-  // WE_n/A14, A13..A0, BA, BG. CS_n/CKE/ODT are deliberately NOT covered (spec). Same-cycle as
-  // the command (tcapar_lat = 0).
+  // command values, NOP phases the idle defaults — idle XORs to 0 because address/bank/bg idle
+  // at 0 and act_n/ras/cas/we idle at 1, four 1s -> 0). Coverage set: ACT_n, RAS_n/A16,
+  // CAS_n/A15, WE_n/A14, A13..A0, BA, BG. A16/A15/A14 are taken from the dedicated RAS/CAS/WE
+  // pins ONLY: on ACT the address bus carries the full row, so its top three bits duplicate
+  // RAS/CAS/WE — the address term is therefore masked to the low 14 bits so each pin is counted
+  // exactly once. CID (C0-C2 die-select) IS covered per §4.17 for 3DS/stacked devices.
+  // CS_n/CKE/ODT are deliberately NOT covered (spec). Same-cycle (tcapar_lat = 0).
   if (config.useCaParity) {
     for (i <- 0 until config.frequencyRatio) {
+      val addrCovered = Math.min(14, config.addressWidth) // A13..A0 only; A16/A15/A14 come from RAS/CAS/WE
       val covered =
         (if (config.useAckN) List(io.output.actN(i, 1 bits)) else Nil) ++
           (if (config.useRasN) List(io.output.rasN(i * config.controlWidth, config.controlWidth bits)) else Nil) ++
@@ -83,7 +87,7 @@ case class CAAlignment(config: DfiConfig) extends Component {
           (if (config.useCid) List(io.output.cid(i * config.chipIdWidth, config.chipIdWidth bits)) else Nil) ++
           (if (config.useBg) List(io.output.bg(i * config.bankGroupWidth, config.bankGroupWidth bits)) else Nil) ++
           (if (config.useBank) List(io.output.bank(i * config.bankWidth, config.bankWidth bits)) else Nil) ++
-          List(io.output.address(i * config.addressWidth, config.addressWidth bits))
+          List(io.output.address(i * config.addressWidth, addrCovered bits))
       io.output.parity(i) := covered.map(_.xorR).reduce(_ ^ _)
     }
   }
