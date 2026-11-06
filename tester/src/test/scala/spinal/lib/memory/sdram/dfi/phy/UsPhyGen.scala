@@ -33,7 +33,7 @@ object UsPhyGen {
       sdram = sdram, ddr4ModeRegs = Ddr4ModeRegs(mr5 = mr5),
       initSteps = None, bootTraining = false
     )
-    SpinalVerilog(UsPhy(cfg))
+    SpinalVerilog(SpinalConfig(targetDirectory = "./simWorkspace", mode = Verilog))(UsPhy(cfg))
     println("GEN_DONE")
   }
 }

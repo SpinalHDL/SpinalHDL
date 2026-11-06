@@ -53,7 +53,18 @@ val sdramtime = SdramTiming(
       sourceWidth = srcW, contextWidth = 2, lengthWidth = 10,
       alignment = BmbParameter.BurstAlignement.WORD
     )
-    SpinalVerilog(DfiController(bmbp, task, cfg, RowBankColumn))
+    // Deterministic output path: the tester package redirects SpinalVerilog's default
+    // target directory to ./simWorkspace, and SpinalHDL does not overwrite an existing
+    // <Top>/rtl/ tree (it appends _N to the DIRECTORY instead, leaving the file name
+    // DfiController.v). Clear the stale tree so this run's netlist lands exactly at
+    // simWorkspace/DfiController/rtl/DfiController.v — the path DfiBoardEvidenceSpec
+    // hashes and the xsim harness consumes.
+    def rmTree(f: java.io.File): Unit = {
+      if (f.isDirectory) f.listFiles().foreach(rmTree)
+      f.delete()
+    }
+    rmTree(new java.io.File("./simWorkspace/DfiController"))
+    SpinalVerilog(SpinalConfig(targetDirectory = "./simWorkspace/DfiController/rtl", mode = Verilog))(DfiController(bmbp, task, cfg, RowBankColumn))
     println("GEN_MC_DONE")
   }
 }
