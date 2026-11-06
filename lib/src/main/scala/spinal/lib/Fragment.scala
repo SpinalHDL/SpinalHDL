@@ -578,7 +578,7 @@ object StreamFragmentGenerator {
 
 object StreamFragmentArbiter {
    def apply[T <: Data](dataType: T)(inputs: Seq[Stream[Fragment[T]]]): Stream[Fragment[T]] = {
-    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size, StreamArbiter.LowerFirst, StreamArbiter.TransactionLock)
+    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size, StreamArbiter.LowerFirst, StreamArbiter.FragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
     arbiter.io.output
   }
@@ -586,7 +586,7 @@ object StreamFragmentArbiter {
 
 object StreamFragmentArbiterAndHeaderAdder {
   def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Stream[Fragment[T]], T]]): Stream[Fragment[T]] = {
-    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size, StreamArbiter.LowerFirst, StreamArbiter.TransactionLock)
+    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size, StreamArbiter.LowerFirst, StreamArbiter.FragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
 
     val ret = Stream Fragment (dataType)
