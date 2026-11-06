@@ -179,10 +179,11 @@ case class WrAlignment(config: DfiConfig) extends Component {
     io.output.wr(i).wrdataEn := io.input(i).valid
   }
 
-  val delay = Reg(U(timeConfig.tPhyWrData / frequencyRatio) << 1).init(0)
+  val delayDepth = timeConfig.tPhyWrData / frequencyRatio
+  val delay = Reg(UInt(Math.max(1, log2Up(delayDepth + 1)) bits)).init(0)
 
   when(io.input.map(_.valid).orR.rise()) {
-    delay := timeConfig.tPhyWrData / frequencyRatio
+    delay := delayDepth
   }
 
   val wrdataHistory = Vec(Vec(DfiWrData(config), timeConfig.tPhyWrData / frequencyRatio + 2), frequencyRatio)

@@ -343,8 +343,6 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // DQS period, so DQ-vs-DQS relative alignment is unchanged):
   //   wren high [ws, ws+20)  ->  DQ active [ws+10, ws+35).
   val wrEnLive = dfi.write.wr.map(_.wrdataEn).reduce(_||_)
-  val wrEnFall = ClockDomain(!sysClk, rstSynced) { Reg(Bool()) init(False) }
-  wrEnFall := wrEnLive
   // Extended DQ-active window (pin-independent: pure RegNext chain of wrEnLive).
   // Shared by the DQ IOBUFs and the DM/DBI serializers below.
   val wrEnExt  = Reg(Bool()) init(False)
@@ -502,10 +500,19 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // a constant-true wrlvlDone.
   //
   // ---- DQS output: toggle waveform through ODELAYE3 (per byte-lane) ----------
-  // wlActive is a slow control flag (default/refclk domain).
-  // WL enable: pure combinational (derived from the MC input port wrlvlEn, which is
-  //   not clock-bound) so it can be consumed in BOTH the refclk and dramClk domains.
+  // wlActive is a slow control flag in the DFI (sysClk) domain, derived from the
+  // MC input port wrlvlEn. dramClk consumers below use the 2FF-synchronized copy
+  // wlActiveCd (ADR-0020: the flag is stable for hundreds of ns while training is
+  // requested, so the 2-cycle synchronization delay is invisible to the FSMs that
+  // wait on it).
   val wlActive = (if (cfg.useWrlvlEn) dfi.wrTraining.wrlvlEn.orR else False)
+  val wlActiveCd = cd {
+    val s1 = Reg(Bool()) init(False)
+    val s2 = Reg(Bool()) init(False)
+    s1 := wlActive
+    s2 := s1
+    s2
+  }
 
   // DQS write-strobe: T-FF clocked by dramClk -> square wave at f_dramClk/2.
   val dqsTff = new USPhy_TFF()
@@ -562,7 +569,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     val bbConv = Reg(UInt(4 bits)) init(0)
 
     dqsTogPrev := dqsToggle
-    when(!wlActive) {                    // training not requested: park at mid-range
+    when(!wlActiveCd) {                 // training not requested: park at mid-range
       bbConv  := 0
       wlDelay := 256
       wlDone  := False
@@ -573,7 +580,11 @@ case class UsPhy(cfg: DfiConfig) extends Component {
         // Converged when the counter is stable (+-3 taps) over 16 DQS periods
         // for 8 straight windows (bang-bang settles into a +-1 tap oscillation
         // around the lock point).
-        val drifted = (bbHist(0) > (bbHist(15) + 3)) || (bbHist(15) > (bbHist(0) + 3))
+        // Drift compare in UNSIGNED 10 BITS so a saturated 511 + 3 cannot wrap
+        // (in 9-bit arithmetic 511+3 wraps to 2 and falsely declares drift).
+        val h0  = bbHist(0).resize(10)
+        val h15 = bbHist(15).resize(10)
+        val drifted = (h0 > (h15 + 3)) || (h15 > (h0 + 3))
         when(drifted) { bbConv := 0 }
         .otherwise    { bbConv := bbConv + 1 }
         // Bang-bang. The dqsToggle edge IS the local DQS rising edge, so
@@ -581,8 +592,10 @@ case class UsPhy(cfg: DfiConfig) extends Component {
         //   fbSample HIGH -> returned DQS lags  -> delay too big -> CUT (n-1)
         //   fbSample LOW  -> returned DQS leads -> delay too small-> ADD (n+1)
         // Attractor: net loop delay delta -> 0 (returned DQS aligned to CK).
-        when(fbSample(0)) { wlDelay := wlDelay - 1 }
-        .otherwise        { wlDelay := wlDelay + 1 }
+        // SATURATED at the endpoints: the delay line spans 0..511, and an
+        // unsaturated +/-1 would wrap (0-1 -> 511) if the loop ever sat there.
+        when(fbSample(0)) { when(wlDelay > 0)   { wlDelay := wlDelay - 1 } }
+        .otherwise        { when(wlDelay < 511) { wlDelay := wlDelay + 1 } }
         when(bbConv > 7)  { wlDone  := True }
       }
     }                                    // wlActive && wlDone: hold (no reset)
@@ -623,8 +636,12 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // post window (last beat + POST_UI=5 edges) ends at ws+35, so the DQS pad
   // must be parked by ws+32.5 at the latest. wrEnLive is refclk-domain; the
   // first dramClk sample lands 2.5 ns after its rising edge (refclk posedge
-  // == dramClk negedge), so no coincident-edge race. (Silicon note: a 2FF
-  // synchronizer would be inserted here; the margin absorbs its latency.)
+  // == dramClk negedge), so no coincident-edge race. SIGN-OFF (ADR-0020): this
+  // direct refclk->dramClk sampling relies on the DFI 5.2 §4.10.1 MUST that the
+  // DFI clock and the Command/Data clock are phase-aligned at an integer ratio —
+  // satisfied by the clock network in silicon and by the testbenches — which
+  // bounds every crossing ≥ 2.5 ns from the sampling edge; no synchronizer is
+  // inserted on this data-critical path.
   val dqsTail = Vec.fill(2)(cd { Reg(Bool()) init(False) })
   cd {
     dqsTail(0) := wrEnLive
@@ -648,10 +665,11 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   }
   // Gate the pad in the dramClk domain: live inside the envelope, parked
   // outside. dqsWinSlow is COMPUTED HERE (dramClk domain) so the tail vector
-  // is never read cross-domain (the refclk->dramClk reads of wrEnLive/wlActive
-  // are plain synchronous crossings into this domain).
+  // is never read cross-domain. wrEnLive crosses refclk->dramClk per the
+  // ADR-0020 sign-off above; wlActive arrives as its 2FF-synchronized copy
+  // wlActiveCd (slow control flags are synchronized, not read raw).
   cd {
-    val dqsWinSlow = wrEnLive | Cat(dqsTail).orR | wlActive
+    val dqsWinSlow = wrEnLive | Cat(dqsTail).orR | wlActiveCd
     for (l <- 0 until byteLanes) {
       when(dqsWinSlow) { dqsParks(l) := dqsOdelays(l).DATAOUT }
       pads.dqs_t(l) := Mux(dqsWinSlow, dqsOdelays(l).DATAOUT, dqsParks(l))
@@ -666,9 +684,20 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   if (cfg.useWrlvlReq) { dfi.wrTraining.wrlvlReq := 0 }
   if (cfg.usePhylvlAckCsN) { dfi.phyRequestedTraining.phylvlAckCsN := 0 }
   if (cfg.useWrlvlResp) {
+    // DFI 5.2 §4.10.2: PHY-driven DFI signals must be LAUNCHED FROM THE RISING
+    // EDGE OF THE DFI CLOCK. wlDone lives in the dramClk domain, so it is
+    // registered here (sysClk domain) before driving the port; the extra cycle
+    // (10 ns) is absorbed by the MC-side tWrlvlResp watchdog (160 ns).
+    // NB: tag the register NODE itself (not the result of init(), which is the
+    // underlying non-reg data) so SpinalVerilogBoot's auto-sanitizer recognizes
+    // this as a sanctioned crossing and does not insert its own 2FF sync.
+    val wlDoneDfi = Reg(Bool())
+    wlDoneDfi.addTag(crossClockDomain) // sanctioned synchronizer input (DFI 5.2 sec 4.10.2; ADR-0020)
+    wlDoneDfi.init(False)
+    wlDoneDfi := wlDone
     // Per-bit construction (avoids whole-vs-bit assignment overlap when width==1).
     for (k <- 0 until cfg.writeLevelingResponseWidth) {
-      dfi.wrTraining.wrlvlResp(k) := (if (k == cfg.writeLevelingResponseWidth - 1) wlDone else False)
+      dfi.wrTraining.wrlvlResp(k) := (if (k == cfg.writeLevelingResponseWidth - 1) wlDoneDfi else False)
     }
   }
   if (cfg.usePhyWrlvlCsN) {
@@ -700,6 +729,14 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   //     reference is the pad oscillator, not a data eye).
   // ===========================================================================
   val rlActive = (if (cfg.useRdlvlEn) dfi.rdTraining.rdlvlEn.orR else False)
+  // Slow-control-flag synchronization, mirroring wlActiveCd (ADR-0020).
+  val rlActiveCd = cd {
+    val s1 = Reg(Bool()) init(False)
+    val s2 = Reg(Bool()) init(False)
+    s1 := rlActive
+    s2 := s1
+    s2
+  }
 
   // Receive-path delay elements (the quantity read leveling optimizes).
   val rlIddelays = Seq.fill(byteLanes)(new IDELAYE3())
@@ -727,7 +764,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     val bbConv  = Reg(UInt(4 bits)) init(0)
 
     togPrev := dqsToggle
-    when(!rlActive) {                      // park at mid-range between sessions
+    when(!rlActiveCd) {                   // park at mid-range between sessions
       bbConv  := 0
       rlDelay := 256
       rlDone  := False
@@ -735,12 +772,17 @@ case class UsPhy(cfg: DfiConfig) extends Component {
       when(togRise) {
         for (i <- 15 downto 1) { bbHist(i) := bbHist(i-1) }
         bbHist(0) := rlDelay
-        val drifted = (bbHist(0) > (bbHist(15) + 3)) || (bbHist(15) > (bbHist(0) + 3))
+        // Drift compare in UNSIGNED 10 BITS (same rationale as the
+        // write-leveling twin: 511+3 must not wrap in 9-bit arithmetic).
+        val h0  = bbHist(0).resize(10)
+        val h15 = bbHist(15).resize(10)
+        val drifted = (h0 > (h15 + 3)) || (h15 > (h0 + 3))
         when(drifted) { bbConv := 0 }
         .otherwise    { bbConv := bbConv + 1 }
         // Bang-bang (same polarity convention as the WL detector).
-        when(rlSample(0)) { rlDelay := rlDelay - 1 }
-        .otherwise        { rlDelay := rlDelay + 1 }
+        // SATURATED at the endpoints (0-1 would wrap to 511).
+        when(rlSample(0)) { when(rlDelay > 0)   { rlDelay := rlDelay - 1 } }
+        .otherwise        { when(rlDelay < 511) { rlDelay := rlDelay + 1 } }
         when(bbConv > 7)  { rlDone  := True }
       }
     }                                      // rlActive && rlDone: hold
@@ -759,9 +801,19 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     dfi.rdTraining.phyRdlvlCsN := 0
   }
   if (cfg.useRdlvlResp) {
+    // Registered in the DFI (sysClk) domain before driving the port: DFI 5.2
+    // §4.10.2 requires PHY-driven DFI signals to launch from the DFI clock's
+    // rising edge (rl.done lives in the dramClk domain). Mirrors wlDoneDfi.
+    // NB: tag the register NODE itself (not the result of init(), which is the
+    // underlying non-reg data) so SpinalVerilogBoot's auto-sanitizer recognizes
+    // this as a sanctioned crossing and does not insert its own 2FF sync.
+    val rlDoneDfi = Reg(Bool())
+    rlDoneDfi.addTag(crossClockDomain) // sanctioned synchronizer input (DFI 5.2 sec 4.10.2; ADR-0020)
+    rlDoneDfi.init(False)
+    rlDoneDfi := rl.done
     // EARNED by the convergence check (mirrors wrlvlResp); never constant.
     for (k <- 0 until dfi.rdTraining.rdlvlResp.getWidth) {
-      dfi.rdTraining.rdlvlResp(k) := (if (k == 0) rl.done else False)
+      dfi.rdTraining.rdlvlResp(k) := (if (k == 0) rlDoneDfi else False)
     }
   }
   if (cfg.useRdlvlGateReq) {

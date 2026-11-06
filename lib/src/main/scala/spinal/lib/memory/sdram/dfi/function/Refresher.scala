@@ -19,7 +19,8 @@ case class Refresher(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   // gap sat ~31 DFI clocks under tREFI and the drain jitter pushed it over -> tREFI violations.
   // Adding an explicit drain-wait slack (+20) pulls the baseline gap down so the jitter stays
   // inside tREFI. Refreshing a little more often than tREFI is always spec-safe (tREFI is a max).
-  val margin = timeConfig.RP + timeConfig.RFC + 20
+  val drainSlack = 20 // DFI clocks of drain-wait slack (see comment above)
+  val margin = timeConfig.RP + timeConfig.RFC + drainSlack
   val hit = value <= U(margin, taskConfig.taskParameter.refWidth bits)
   value := value - 1
   // The refresh request is serviced by the MakeTask refresh FSM, which precharges every bank and

@@ -74,7 +74,10 @@ case class CtrlMsgArbiter(dfiConfig: DfiConfig) extends Component {
   val respTimer = Reg(UInt(log2Up(tResp + 1) bits)) init (0)
   val maxTimer = Reg(UInt(log2Up(tMax + 1) bits)) init (0)
 
-  val done = False
+  // trainDone is a one-cycle pulse raised on clean completion (ack deasserted),
+  // consumed by the controller/trainer to close the ctrlmsg handshake.
+  val done = RegInit(False)
+  done := False
   io.trainDone := done
   io.ctrlMsgError := error
   io.trainBusy := busy

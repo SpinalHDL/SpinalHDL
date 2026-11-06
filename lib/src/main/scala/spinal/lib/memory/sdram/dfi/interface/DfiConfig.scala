@@ -72,6 +72,13 @@ object DfiSignalConfig {
     new DDR4SignalConfig(groupConfig, useCrc)
 }
 
+/** Signal-capability switches for the DFI bundle.
+  *
+  *  `useCrc` is RESERVED: the DFI CRC sideband (dfi_crc_*) is not implemented in this
+  *  controller/PHY pair — no bundle member exists for it and the netlist-ledger spec has
+  *  no entry for it. Passing `useCrc = true` is accepted (for forward compatibility with
+  *  the DFI 5.2 surface) but has NO effect on the generated RTL.
+  */
 class DfiSignalConfig(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useCrc: Boolean = false) {
   val useBank: Boolean = false
   val useAckN: Boolean = false
@@ -152,6 +159,7 @@ class DfiSignalConfig(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useC
   def useParity = useParityIn & useAlertN
   def usePhylvl = usePhylvlReqCsN & usePhylvlAckCsN
   def useLpData = useLpDataReq & useLpAck
+  // Reserved with useCrc (see class comment): no RTL is generated from this today.
   def useCrcMode = useCrc & useAlertN
 }
 
