@@ -477,13 +477,17 @@ class I2cAutoSim extends AnyFunSuite {
     var c = 0
     while (!bus.cmd.ready.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
     assert(c < 100, s"bmbRead: cmd not ready (addr=0x${addr.toHexString})")
+    // Deassert valid on the SAME cycle the command fires (exactly one-cycle valid), so
+    // read side-effects that trigger per-cycle on isReading (e.g. RX FIFO pop at 0x10)
+    // fire at most once. BmbSlaveFactory drives rsp.valid combinationally with cmd.valid
+    // but REGISTERS the read DATA: it reflects the presented address only on the cycle
+    // AFTER the fire edge. Sampling on the fire cycle returns a stale 0 for a read that
+    // follows other-address / idle traffic (the localized read-channel race); sample one
+    // settled cycle later while valid is already low (the registered read mux holds our
+    // address). The response is a pure register read, so opcode carries no error.
     bus.cmd.valid   #= false
-    c = 0
-    var data = 0
-    while (!bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
-    assert(c < 100, s"bmbRead: no rsp (addr=0x${addr.toHexString})")
-    assert(bus.rsp.opcode.toInt === 0, s"bmbRead: rsp error (addr=0x${addr.toHexString})")
-    data = bus.rsp.data.toInt
+    cd.waitActiveEdge()
+    val data = bus.rsp.data.toInt
     bus.rsp.ready   #= false
     cd.waitActiveEdge()
     data
@@ -519,6 +523,18 @@ class I2cAutoSim extends AnyFunSuite {
       cycles += 1
     }
     assert(cycles < maxCycles, s"Timed out after $maxCycles cycles")
+  }
+
+  // The slave raises its flags on its OWN filtered STOP detection, which trails
+  // the master's busy release (TBUF) by the input-filter pipeline (2-FF sync +
+  // unanimity window + edge detect). Poll the internal flag (simPublic) with a
+  // bounded wait before sampling the firmware-visible INT_FLAG register.
+  def waitForSlaveFlag(dut: TestTop, mask: Int, expect: Int, cd: ClockDomain, maxCycles: Int = 500): Unit = {
+    var c = 0
+    while (((dut.slave.intr.fl.toInt & mask) != expect) && c < maxCycles) {
+      cd.waitActiveEdge(); c += 1
+    }
+    assert(c < maxCycles, s"slave INT_FLAG (mask=0x${mask.toHexString}, expect=$expect) not reached within $maxCycles cycles")
   }
 
 
@@ -960,11 +976,33 @@ class I2cAutoSim extends AnyFunSuite {
       assert(rises >= 9, s"recovery emitted $rises SCL rising edges, expected >= 9 (UM10204 sec. 3.1.17)")
       assert(dut.master.io.i2c.sda.write.toBoolean,
         "master must release SDA (drive High) during recovery pulses")
-      cd.waitActiveEdge(300)
+      // The 9th SCL rise ends RECOV_HI; the wire STOP only appears after
+      // STOP0 (40cyc) + STOP1 + the SDA rise in STOP2. Wait for it (bounded),
+      // then settle briefly so a (bogus) second STOP cannot sneak in.
+      cycles = 0
+      while (dut.stopCnt.toInt == stopBefore && cycles < 5000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      cd.waitActiveEdge(50)
       assert(dut.stopCnt.toInt == stopBefore + 1,
         s"recovery must terminate with exactly one STOP, stopCnt ${stopBefore}->${dut.stopCnt.toInt}")
 
-      // Verify timeout error
+      // The wire STOP lands mid-STOP2; busy only drops in TBUF a few segments
+      // later. Wait for the tail to finish (bounded).
+      cycles = 0
+      while (dut.master.status.busy.toBoolean && cycles < 2000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+
+      // Verify timeout error. The wire STOP lands mid-STOP2; busy only drops
+      // in TBUF a few segments later, so wait for the tail to finish (bounded).
+      cycles = 0
+      while (dut.master.status.busy.toBoolean && cycles < 5000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
       val err = dut.master.status.errCode.toInt
       assert(err == 3, f"errCode=$err, expected 3 (timeout)")
       assert(!dut.master.status.busy.toBoolean, "busy should be clear after timeout")
@@ -1454,14 +1492,24 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.master.status.busy.toBoolean, "Transfer should be active")
       dut.sclForceLow #= true  // bus hang
 
+      // Wait for the timeout to latch. While the wire is held Low the master
+      // cannot finish its STOP (STOP1 waits for SCL High), so busy stays High
+      // by design; once the bus is released the recovery/STOP tail must
+      // complete and busy must clear.
       var cycles = 0
+      while (dut.master.status.errCode.toInt != 3 && cycles < 20000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      assert(cycles < 20000, "timeout never latched (errCode != 3)")
+
+      dut.sclForceLow #= false
+      cycles = 0
       while (dut.master.status.busy.toBoolean && cycles < 20000) {
         cd.waitActiveEdge()
         cycles += 1
       }
       assert(cycles < 20000, "master hung after composite timeout (phase-2 state not unwound?)")
-      cd.waitActiveEdge(300)
-      dut.sclForceLow #= false
       cd.waitActiveEdge(50)
 
       val err = dut.master.status.errCode.toInt
@@ -1805,9 +1853,10 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(50)
       dut.sclForceLow #= true  // hang the bus
 
-      // Wait for the timeout to latch (recovery is now IN PROGRESS: FSM is in
-      // the RECOV states, busy already cleared). This is exactly the window
-      // where a firmware CMD used to vanish with no errCode (G5).
+      // Wait for the timeout to latch. The FSM is now in the recovery/STOP
+      // tail and busy stays High through the whole tail (post-G5 semantics).
+      // This is exactly the window where a firmware CMD used to vanish with
+      // no errCode (G5).
       var cycles = 0
       while (dut.master.status.errCode.toInt != 3 && cycles < 20000) {
         cd.waitActiveEdge()
@@ -1826,6 +1875,13 @@ class I2cAutoSim extends AnyFunSuite {
         cycles += 1
       }
       assert(stops >= 1, "recovery STOP never observed")
+      // The wire STOP is observable mid-STOP2; busy only drops in TBUF, a few
+      // segments later. Wait for the tail to finish before asserting.
+      cycles = 0
+      while (dut.master.status.busy.toBoolean && cycles < 5000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
       assert(dut.master.status.errCode.toInt == 5,
         s"errCode=${dut.master.status.errCode.toInt}, expected 5 (BUSY_REJECTED, overwrites 3)")
       assert(!dut.master.status.busy.toBoolean, "busy should be clear")
@@ -2321,6 +2377,98 @@ class I2cAutoSim extends AnyFunSuite {
       // (first divergent bit, Low wins), not by instantiation order —
       // masterB must win despite being the second instance.
       contestScenario(dut, cd, aAddr = 0x30, aPay = Seq(0xA0, 0xA1), bAddr = 0x10, bPay = Seq(0xB0, 0xB1))
+    }
+  }
+
+  // =========================================================================
+  // Interrupt subsystem coverage (T-B1): INT_EN / INT_FLAG / INT_CLR (W1C)
+  // for BOTH master and slave. Exercises the complete + error paths and the
+  // W1C clear-then-retigger behaviour (guards against a stuck clear swallowing
+  // later flags).
+  // =========================================================================
+  test("I2cAuto: master+slave interrupts (INT_EN/FLAG/CLR W1C, complete+error+retigger)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      cd.waitActiveEdge(5)
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)                                   // slave CFG_SAMPDIV
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slave addr 0x28, matchEn
+      dut.regWriteSlave(0x04, 0)                                   // slave PTR=0
+
+      // Enable interrupts: master complete[0]|error[1]; slave rxComplete[0]|errNack[1]
+      dut.regWriteMaster(0x18, 0x3)
+      dut.regWriteSlave(0x10, 0x3)
+      // Power-up clear of any preset flags
+      dut.regWriteMaster(0x20, 0x3)
+      dut.regWriteSlave(0x18, 0x3)
+      cd.waitActiveEdge(5)
+
+      // ----- MASTER COMPLETE(bit0) + SLAVE rxComplete(bit0) after a good write -----
+      pushTx(dut, 0xAB)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)
+      waitForIdle(dut)
+      cd.waitActiveEdge(5)
+      assert(dut.master.status.errCode.toInt == 0, s"unexpected errCode=${dut.master.status.errCode.toInt}")
+      // Master complete flag is synchronous with the busy release (TBUF): direct read.
+      val mFlag1 = bmbRead(dut.masterRegBus, 0x1C, cd)
+      assert((mFlag1 & 0x1) == 1, s"master INT_FLAG=0x$mFlag1%x, expected complete bit0 set")
+      assert(dut.io.irqMaster.toBoolean, "master IRQ must be High after complete (INT_EN[0]&FLAG[0])")
+      // Slave rxComplete lags the master's idle by the slave's filter pipeline: poll.
+      waitForSlaveFlag(dut, mask = 0x1, expect = 1, cd)
+      assert((dut.slave.intr.fl.toInt & 0x1) == 1, s"slave rxComplete flag not set (internal fl=0x${Integer.toHexString(dut.slave.intr.fl.toInt)})")
+      assert(dut.io.irqSlave.toBoolean, "slave IRQ must be High after rxComplete (INT_EN[0]&FLAG[0])")
+      // Positive Bmb READBACK of the slave interrupt registers. This is the regression
+      // guard for the read-channel race localized during review: BmbSlaveFactory drives
+      // rsp.valid combinationally with cmd.valid but its read DATA is registered and
+      // only reflects the presented address on the cycle AFTER the command fires. The
+      // first read following other-address / idle traffic therefore returned a stale 0x0
+      // when sampled on the fire cycle; the corrected bmbRead samples one settled cycle
+      // after the fire edge, so the live value (0x3 / rxComplete bit0) reads back.
+      val sEn1   = bmbRead(dut.slaveRegBus, 0x10, cd)
+      val sFlag1 = bmbRead(dut.slaveRegBus, 0x14, cd)
+      assert((sEn1 & 0x3) == 0x3, s"slave INT_EN(0x10) readback=0x${Integer.toHexString(sEn1)}, expected 0x3")
+      assert((sFlag1 & 0x1) == 1, s"slave INT_FLAG(0x14) readback=0x${Integer.toHexString(sFlag1)}, expected rxComplete bit0")
+
+      // ----- W1C clear both; IRQ drops -----
+      dut.regWriteMaster(0x20, 0x1)                                 // clear master complete
+      dut.regWriteSlave(0x18, 0x1)                                  // clear slave rxComplete
+      cd.waitActiveEdge(5)
+      val mFlag2 = bmbRead(dut.masterRegBus, 0x1C, cd)
+      assert((mFlag2 & 0x1) == 0, s"master INT_FLAG=0x$mFlag2%x after W1C, expected complete cleared")
+      waitForSlaveFlag(dut, mask = 0x1, expect = 0, cd)             // slave rxComplete cleared (internal flag)
+      assert(!dut.io.irqMaster.toBoolean, "master IRQ must drop after W1C (no pending flags)")
+      assert(!dut.io.irqSlave.toBoolean, "slave IRQ must drop after W1C (no pending flags)")
+
+      // ----- MASTER ERROR(bit1): write to an UNADDRESSED slave -> address NACK -----
+      pushTx(dut, 0xCD)
+      dut.issueCmd(addr = 0x29, rw = false, len1 = 1)
+      waitForIdle(dut)
+      cd.waitActiveEdge(5)
+      assert(dut.master.status.errCode.toInt == 1, s"expected errCode=1 (ADDR_NACK), got ${dut.master.status.errCode.toInt}")
+      val mFlag3 = bmbRead(dut.masterRegBus, 0x1C, cd)
+      assert((mFlag3 & 0x2) == 2, s"master INT_FLAG=0x$mFlag3%x, expected error bit1 set")
+      assert(dut.io.irqMaster.toBoolean, "master IRQ must be High after error (INT_EN[1]&FLAG[1])")
+      // Slave was NOT addressed (0x29 != 0x28): S-B2 (no spurious errNack) + S-R5 (no rxComplete).
+      // Settle past the slave's STOP filter latency BEFORE asserting the negative:
+      // the slave reacts to this STOP a few cycles after the master already went
+      // idle, so an immediate read would be vacuously true and miss a regression.
+      cd.waitActiveEdge(100)
+      assert((dut.slave.intr.fl.toInt & 0x1) == 0, s"slave rxComplete unexpectedly set (internal fl=0x${Integer.toHexString(dut.slave.intr.fl.toInt)}); S-B2/S-R5 violated")
+
+      // ----- W1C error; retigger proves the clear did not swallow later flags -----
+      dut.regWriteMaster(0x20, 0x2)                                 // clear master error
+      cd.waitActiveEdge(5)
+      val mFlag4 = bmbRead(dut.masterRegBus, 0x1C, cd)
+      assert((mFlag4 & 0x2) == 0, s"master INT_FLAG=0x$mFlag4%x after W1C, expected error cleared")
+      dut.regWriteSlave(0x04, 0)                                    // reset slave PTR
+      pushTx(dut, 0xEF)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)
+      waitForIdle(dut)
+      cd.waitActiveEdge(5)
+      val mFlag5 = bmbRead(dut.masterRegBus, 0x1C, cd)
+      assert((mFlag5 & 0x1) == 1, s"master INT_FLAG=0x$mFlag5%x after retigger, expected complete re-set (W1C not sticky)")
+      assert(dut.io.irqMaster.toBoolean, "master IRQ must re-raise after retigger (W1C did not disable)")
     }
   }
 }
