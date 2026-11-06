@@ -141,49 +141,31 @@ trait BusIfBase extends Area{
       }
     }
   }
+  /**
+   * Strobed write merge: per byte lane of `sec`, `upd` where the lane's strobe is set and `old` elsewhere.
+   * One Mux per lane instead of `(old & wmaskn) | (upd & wmask)`: synthesis turns the strobe into the clock enable of
+   * the register flip-flops, the AND/OR form costs a LUT per register bit.
+   */
+  private def strbMerge(old: Bits, upd: Bits, sec: Range): Bits = {
+    Cat((sec.min to sec.max).groupBy(_ / 8).toSeq.sortBy(_._1).map { case (lane, bits) =>
+      val slice = (bits.max - sec.min) downto (bits.min - sec.min)
+      Mux(wstrb(lane), upd(slice), old(slice))
+    })
+  }
   def wdata(reg: BaseType, sec: Range): Bits = wdata(reg, sec, oper = "normal")
   def wdata(reg: BaseType, sec: Range, oper: String):Bits = {
+    lazy val old: Bits = reg match {
+      case t: Bits => t
+      case t: UInt => t.asBits
+      case t: SInt => t.asBits
+      case t: Bool => t.asBits
+      case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+    }
     oper match {
-      case "clear" =>
-        if(withStrb){
-          reg match {
-            case t: Bits => (t        & wmaskn(sec))
-            case t: UInt => (t.asBits & wmaskn(sec))
-            case t: SInt => (t.asBits & wmaskn(sec))
-            case t: Bool => (t.asBits & wmaskn(sec))
-            case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
-          }
-        } else B(0, sec.size bit)
-      case "set" =>
-        if(withStrb) {
-          reg match {
-            case t: Bits => (t        & wmaskn(sec)) | wmask(sec)
-            case t: UInt => (t.asBits & wmaskn(sec)) | wmask(sec)
-            case t: SInt => (t.asBits & wmaskn(sec)) | wmask(sec)
-            case t: Bool => (t.asBits & wmaskn(sec)) | wmask(sec)
-            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
-          }
-        }else Bits(sec.size bit).setAll()
-      case "normal" =>
-        if(withStrb){
-          reg match {
-            case t: Bits => (t        & wmaskn(sec)) | (writeData(sec) & wmask(sec))
-            case t: UInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
-            case t: SInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
-            case t: Bool => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
-            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
-          }
-        } else writeData(sec)
-      case "toggle" =>
-        if(withStrb){
-          reg match {
-            case t: Bits => (t        & wmaskn(sec)) | (~t(sec)        & wmask(sec))
-            case t: UInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
-            case t: SInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
-            case t: Bool => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
-            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
-          }
-        } else ~reg.asBits(sec)
+      case "clear"  => if (withStrb) strbMerge(old, B(0, sec.size bit), sec)                else B(0, sec.size bit)
+      case "set"    => if (withStrb) strbMerge(old, B(sec.size bit, default -> True), sec) else Bits(sec.size bit).setAll()
+      case "normal" => if (withStrb) strbMerge(old, writeData(sec), sec)                    else writeData(sec)
+      case "toggle" => if (withStrb) strbMerge(old, ~old, sec)                              else ~reg.asBits(sec)
       case _ => SpinalError(s"unrecognize '${oper}''")
     }
   }
@@ -191,10 +173,10 @@ trait BusIfBase extends Area{
   def wdata(reg: Bool, pos: Int): Bool = wdata(reg, pos, oper = "normal")
   def wdata(reg: Bool, pos: Int, oper: String): Bool = {
     oper match {
-      case "clear"  => if (withStrb) (reg & wmaskn(pos))                                 else False
-      case "set"    => if (withStrb) (reg & wmaskn(pos)) |                   wmask(pos)  else True
-      case "normal" => if (withStrb) (reg & wmaskn(pos)) | (writeData(pos) & wmask(pos)) else writeData(pos)
-      case "toggle" => if (withStrb) (reg & wmaskn(pos)) | (~reg           & wmask(pos)) else ~reg
+      case "clear"  => if (withStrb) Mux(wstrb(pos / 8), False,          reg) else False
+      case "set"    => if (withStrb) Mux(wstrb(pos / 8), True,           reg) else True
+      case "normal" => if (withStrb) Mux(wstrb(pos / 8), writeData(pos), reg) else writeData(pos)
+      case "toggle" => if (withStrb) Mux(wstrb(pos / 8), ~reg,           reg) else ~reg
       case _ => SpinalError(s"unrecognize '${oper}''")
     }
   }
