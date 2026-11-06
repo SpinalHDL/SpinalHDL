@@ -102,6 +102,10 @@ values and event pulses. Any bus family whose slave factory extends
 6. Collect RX data:   Pop bytes from RX_DATA (for read transfers)
 ```
 
+> **Firmware contract (TX/RX FIFO sizing).**
+> - **TX:** before issuing a write command, preload **at least `len1`** (and `len2` for the phase-2 write portion) bytes into the TX FIFO. The RTL pops one byte per transmitted bit-group and does **not** stall on an empty FIFO — an under-run shifts out undefined data with no `errCode`. Preloading is the responsibility of the driver (there is no hardware NAK for TX under-run).
+> - **RX:** drain RX_DATA within `fifoDepth` (default 64) bytes of a read, or the RX FIFO fills and the controller stops clocking (slave clock-stretch equivalent). Reads longer than `fifoDepth` must be drained incrementally.
+
 ---
 
 ### Composite Transfers (RESTART)
