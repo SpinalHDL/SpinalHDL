@@ -80,9 +80,11 @@ class DfiBoardEvidenceSpec extends SpinalAnyFunSuite {
 
   test("netlist digests match the pinned table (ADR-0019)") {
     gate()
-    // Make sure both netlists exist before hashing.
-    if (!new File(s"$workspace/DfiController/rtl/DfiController.v").exists()) capture(E2eMcGen.main(Array()))
-    if (!new File(s"$workspace/UsPhy.v").exists()) capture(UsPhyGen.main(Array()))
+    // ALWAYS regenerate before hashing: the SpinalSim suites share the same workspace
+    // paths and overwrite these files with their own elaborations (different digests),
+    // so a pre-existing file is not trustworthy evidence of what the generators emit.
+    capture(E2eMcGen.main(Array()))
+    capture(UsPhyGen.main(Array()))
     val found = pins.map { case (rel, _) => rel -> sha256(new File(workspace, rel)) }
     if (updateMode) {
       println("[T3-PIN] paste this into DfiBoardEvidenceSpec.pins:")
@@ -123,8 +125,8 @@ object DfiBoardEvidenceSpec {
     * (grill Q6: pin the hashes, and record the regeneration in the commit message).
     */
   val pins: Map[String, String] = Map(
-    "DfiController/rtl/DfiController.v" -> "e9eb6d1fa03fdfd9300528b3a8342c638157b15e14dd0515378e251f76546ec1",
-    "UsPhy.v" -> "65bb9bf0dd2319b36cd15d9ba2b411f6cf554dd825f17bbcd5f1d1fa152d6925"
+    "DfiController/rtl/DfiController.v" -> "1aac8abd5589038e27ed22583184ec0351b90872d19eb9a8f27b0effaeac92d7",
+    "UsPhy.v" -> "c045465f8b82ee71ef8bf62239675608a22a981bbd78c720649a6294df99fdd1"
   )
 
 

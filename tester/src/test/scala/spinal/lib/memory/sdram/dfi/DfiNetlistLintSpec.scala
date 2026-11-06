@@ -28,7 +28,7 @@ import spinal.tester.SpinalAnyFunSuite
 object DfiNetlistLint {
 
   sealed trait Expect { def reason: String }
-  case object Driven extends Expect { def reason = "" }               // must be a real, non-constant driver
+  case class Driven(reason: String = "") extends Expect        // must be a real, non-constant driver; reason documents WHY this non-constant driver is the expected one
   case class Tied(reason: String) extends Expect                    // must be a constant (any value)
   case class Const(expected: String, reason: String) extends Expect // must be exactly this literal
   case class Zero(reason: String) extends Expect                    // must be constant zero
@@ -46,18 +46,18 @@ object DfiNetlistLint {
     "io_dfi_lowPowerControl_lpCtrlReq" -> Zero("no DFI low-power handshake: DRAM power-down / self-refresh entry is not implemented (no CKE path) (DFI 5.2 sec. 3.6, sec. 4.13)"),
     "io_dfi_lowPowerControl_lpDataReq" -> Zero("no DFI data-channel low-power request (DFI 5.2 sec. 3.6, sec. 4.13)"),
     "io_dfi_lowPowerControl_lpWakeUp" -> Zero("no wake indication to report (DFI 5.2 sec. 3.6). NOTE: every producer of this net is a constant, so the whole chain constant-folds (Alignment.scala:106 clearAll, the Control payload) and the top-level port is left with a net driver that has no driver of its own: 2-state simulation reads 0, xsim reads X. Netlist artifact of a deep constant tie, tracked here, not an MC behaviour defect."),
-    "io_dfi_status_initStart" -> Driven,
-    "io_dfi_status_freqRatio" -> Const("<ratio code>", "dfi_cmd_freq_ratio / dfi_data_freq_ratio convey the ratio to the PHY (DFI 5.2 sec. 3.5.1, sec. 3.5.3): 1:1=00, 1:2=01, 1:4=10, 1:8=11. Constant per build, and it must be the code, not the ratio"),
+    "io_dfi_status_initStart" -> Driven(""),
+    "io_dfi_status_freqRatio" -> Const("2'b01", "this default build runs at 1:2 ratio, which encodes as 01 per DFI 5.2 sec. 3.5.3 (1:1=00, 1:2=01, 1:4=10, 1:8=11); the constant is computed in the Alignment layer and reaches this port via the alignment instance port; the per-fr encoding itself is pinned by the dedicated ratio-code test below"),
     "io_dfi_status_parityIn" -> Zero("idle level: the MC has no parity to report into the PHY; its own CA-parity check is dfi_control_parity (JESD79-4B sec. 4.17, DFI 5.2 sec. 4.12)"),
     "io_dfi_status_dataByteDisable" -> Tied("DFI 5.2 Table 25 removed dfi_data_byte_disable 'for lack of usefulness'; sec. 3.5.2 carries the mask as the dfidata_bit_enable parameter, so the wire stays inactive"),
     "io_dfi_status_dramClkDisable" -> Tied("DFI 5.2 sec. 3.5.3 / sec. 4.4 host-clock disabling is a low-power feature with no path in this MC"),
-    "io_dfi_control_cke" -> Tied("CKE held high in operation: JESD79-4B Table 17 / sec. 3.3 step 3 keep CKE registered high through init and normal operation; self-refresh and power-down entry need a CKE path first (not implemented)"),
+    "io_dfi_control_cke" -> Driven("CKE held high in operation: JESD79-4B Table 17 / sec. 3.3 step 3 keep CKE registered high through init and normal operation; self-refresh and power-down entry need a CKE path first (not implemented). Driver is the Alignment-layer hold-high register, routed through the alignment instance port"),
     "io_dfi_control_resetN" -> Tied("JESD79-4B Table 16 NOTE 2: RESET_n is the asynchronous reset and 'must be maintained HIGH during any function'; the open gap is the inability to assert it during init (DFI 5.2 sec. 4.1/4.2), not the idle level"),
     "io_dfi_rdTraining_rdlvlEn" -> Tied("DFI 5.2 sec. 4.10.3 read-leveling mode is a stub (ADR-0002: 'read training STUB (UNVERIFIED_ON_BOARD)')"),
-    "io_dfi_rdTraining_rdlvlReq" -> Tied("DFI 5.2 sec. 4.10.3: no read-leveling request is issued by this MC"),
+    "io_dfi_rdTraining_rdlvlReq" -> Driven("top-level DFI input, driven by the PHY side outside this netlist. Contract: this MC never issues a read-leveling request (DFI 5.2 sec. 4.10.3), so the PHY must never assert it"),
     "io_dfi_rdTraining_rdlvlGateEn" -> Tied("DFI 5.2 sec. 4.10.3: the read-gate training mode of the stub is never entered"),
-    "io_dfi_rdTraining_rdlvlGateReq" -> Tied("DFI 5.2 sec. 4.10.3: no read-gate training request is issued"),
-    "io_dfi_wrTraining_wrlvlReq" -> Tied("the implemented write leveling is the legacy dfi_wrlvl_en window (ADR-0002 tier 2), not the DFI 5.2 wrlvl request"),
+    "io_dfi_rdTraining_rdlvlGateReq" -> Driven("top-level DFI input, driven by the PHY side outside this netlist. Contract: no read-gate training request is ever asserted (DFI 5.2 sec. 4.10.3)"),
+    "io_dfi_wrTraining_wrlvlReq" -> Driven("top-level DFI input, driven by the PHY side outside this netlist. Contract: the implemented write leveling is the legacy dfi_wrlvl_en window (ADR-0002 tier 2), not the DFI 5.2 wrlvl request, so the PHY must never assert it"),
     "io_dfi_levelingTraining_lvlPattern" -> Tied("DFI 5.2 sec. 4.10.4.4 leveling pattern generator not implemented"),
     "io_dfi_phyRequestedTraining_phylvlReqCsN" -> Tied("DFI 5.2 sec. 4.10.4.5 PHY-requested periodic leveling is not implemented"),
     "io_dfi_control_cid" -> Zero("3DS logical ranks are NOT_IMPLEMENTED: DFI 5.2 sec. 4.5.2 / Table 46 map logical ranks onto dfi_cid[2:0]; this MC selects physical ranks with dfi_cs only, so cid must stay constant 0")
@@ -141,7 +141,8 @@ object DfiNetlistLint {
     * stripping leading tokens. A `reg` terminal means real sequential logic, not a tie-off.
     */
   /** Names X such that the netlist contains `.X (<net>)` — i.e. the submodule port driven by `net`. */
-  private val portTargetRe = (net: String) => raw"(?m)\.\s*([A-Za-z0-9_]+)\s*\(\s*${q(net)}\s*\)".r
+  // The argument may carry a bit-select for multi-bit nets: `.io_output_control_cke (x[3:0])`.
+  private val portTargetRe = (net: String) => raw"(?m)\.\s*([A-Za-z0-9_]+)\s*\(\s*${q(net)}(\s*\[\s*[0-9]+\s*(:?\s*[0-9]+\s*)?\])?\s*\)".r
   def portTargetsOf(v: String, net: String): Seq[String] =
     portTargetRe(net).findAllMatchIn(v).map(_.group(1)).toSeq
 
@@ -167,7 +168,11 @@ object DfiNetlistLint {
           else {
             val strip = (1 until r.split("_").length).toSeq.map(i => r.split("_").drop(i).mkString("_"))
             val next = (Seq(r) ++ strip).flatMap(n => driversOf(v, n) ++ portTargetsOf(v, n))
-            if (next.isEmpty) Seq(rhs)
+            // A literal found at any hop IS the terminal: go() only resolves
+            // identifiers/nets, so recursing on literal text finds nothing.
+            val lits = next.filter(n => literalOf(n).isDefined)
+            if (lits.nonEmpty) lits
+            else if (next.isEmpty) Seq(rhs)
             else next.flatMap(n => go(n, seen + name, d - 1)).headOption.toSeq
           }
         }
@@ -241,7 +246,7 @@ object DfiNetlistLint {
     val viaField = if (field == port) Nil else driversOf(v, field)
     val all = (t ++ viaField).distinct
     if (all.isEmpty)
-      (if (declared(v, port)) (Driven, "declared, no driver text found")
+      (if (declared(v, port)) (Driven(""), "declared, no driver text found")
        else (Absent("no driver found for this port"), "absent"))
     else {
       val lits = all.flatMap(x => literalOf(x))
@@ -253,7 +258,7 @@ object DfiNetlistLint {
       else if (lits.nonEmpty && lits.forall(isZeroLiteral) && exprs.forall(e => identRe.findFirstIn(e).isDefined))
         // A constant tie routed out through a net: the net(s) are the trace, the literal is the value.
         (Zero("constant zero driver, routed out"), (lits ++ exprs).mkString(" | "))
-      else (Driven, all.mkString(" | "))
+      else (Driven(""), all.mkString(" | "))
     }
   }
 
@@ -369,15 +374,18 @@ class DfiNetlistLintSpec extends SpinalAnyFunSuite {
       val lits = driversOf(v, port).map(normalize)
       (want, got) match {
         case (_: Absent, _: Absent) => None
-        case (Driven, Driven) => None
-        case (w, g) if !w.isInstanceOf[Driven.type] && !g.isInstanceOf[Driven.type] && !g.isInstanceOf[Absent] =>
+        case (w: Driven, g: Driven) => None
+        case (w, g) if !w.isInstanceOf[Driven] && !g.isInstanceOf[Driven] && !g.isInstanceOf[Absent] =>
           // A documented tie-off: the port is declared and driven only by literals, or SpinalHDL
           // folded it away because its driver is a constant. Const additionally pins the value.
           w match {
             case Const(expected, _) =>
               val foldedOk = folded(allCaps.report, port)
-              if (lits.exists(_ == normalize(expected)) || (foldedOk && w.reason.nonEmpty)) None
-              else Some(s"$port: ledger pins constant $expected, netlist drives ${if (lits.isEmpty) "(nothing)" else lits.mkString("|")}")
+              // The literal may sit BEHIND an instance port (computed in a submodule body):
+              // terminalRhs follows the chain and returns the terminal constants.
+              val deep = terminalRhs(v, port)
+              if (lits.exists(_ == normalize(expected)) || deep.exists(t => normalize(t) == normalize(expected)) || (foldedOk && w.reason.nonEmpty)) None
+              else Some(s"$port: ledger pins constant $expected, netlist drives ${if (lits.isEmpty) "(nothing)" else lits.mkString("|")} (terminals: ${deep.mkString("|")})")
             case _ => None
           }
         case _ => Some(s"$port: ledger expects $want, netlist gives $got ($detail)\n         diag: declared=${declared(v, port)} folded=${folded(allCaps.report, port)} pruned=${pruned(allCaps.report, port)} drivers=${driversOf(v, port).mkString("|")} fieldDrivers=${driversOf(v, port.replaceFirst("^io_dfi_", "")).mkString("|")} portMap=${portMapOf(v, port).mkString("|")} targets=${portTargetsOf(v, port).mkString("|")}\n         text=${v.linesIterator.filter(_.contains(port)).take(3).mkString(" ~~ ")}")
