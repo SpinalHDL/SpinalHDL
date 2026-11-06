@@ -104,7 +104,7 @@ case class IDELAYE3() extends BlackBox {
   *   ADR-0012  top-level port list (refclk, rst_n, dfi, physical pads)
   *
   * SerDes clock architecture (verified against Xilinx golden model + DfiMemoryAgent):
-  *   DATA_WIDTH = 2 * frequencyRatio  (fr=2 → 4, fr=4 → 8)
+  *   DATA_WIDTH = 2 * frequencyRatio  (v1: fr = 2 → DATA_WIDTH = 4)
   *   CLK        = dramClk  (serialization clock, = fr * refclk)
   *   CLKDIV     = sysClk   (frame-load clock, = refclk)
   *   Constraint: CLK = (DATA_WIDTH/2) * CLKDIV → fr * refclk = fr * refclk ✓
@@ -115,24 +115,40 @@ case class IDELAYE3() extends BlackBox {
   *   serialized/deserialized over fr DRAM cycles on CLK (= dramClk).
   *   Frame MSB = phase 0 (earliest DRAM cycle), frame LSB = phase (fr-1) (latest).
   *
-  * MINIMUM FREQUENCY RATIO: v1 requires frequencyRatio >= 2 (OSERDESE3 minimum
-  * DATA_WIDTH=4 implies 2*fr >= 4 → fr >= 2). fr=1 would require OSERDES2.
+  * SUPPORTED FREQUENCY RATIO: v1 supports frequencyRatio == 2 only (OSERDESE3
+  * DATA_WIDTH = 2*fr = 4). fr = 1 would require OSERDES2 and fr >= 3 needs a
+  * multi-phase command path; neither is implemented (see the require below).
   */
 case class UsPhy(cfg: DfiConfig) extends Component {
 
-  require(cfg.frequencyRatio >= 2,
-    s"UsPhy v1 requires frequencyRatio >= 2 (got ${cfg.frequencyRatio}); " +
-    s"fr=1 would require OSERDES2 which is not supported.")
+  // B1: the v1 command path uses a SINGLE-BIT phase selector (Step 3 dramPhase),
+  // so it honours exactly TWO DFI phases. fr >= 3 would mis-route command phases
+  // AND the phaseSel Mux widens past the pad width (hard elaboration failure at
+  // pads.ca). Declaring fr == 2 makes the capability honest; widening to fr = 4
+  // needs a multi-bit phase counter + per-slice select (deferred, unvalidated).
+  require(cfg.frequencyRatio == 2,
+    s"UsPhy v1 supports frequencyRatio == 2 only (got ${cfg.frequencyRatio}): the command " +
+    s"path is a single-bit phase selector supporting 2 phases; fr = 1 needs OSERDES2 and " +
+    s"fr >= 3 needs a multi-phase command path (neither is implemented).")
+  // R1: the write path samples dfi_wrdata combinationally in lockstep with
+  // dfi_wrdata_en (data presented on the SAME DFI cycle as the enable). The PHY
+  // therefore implements ONLY tPhyWrData == 0; a non-zero value would desynchronise
+  // the data from the sample window. Guard it explicitly rather than silently
+  // ignoring the setting (UsPhyGen/Probe historically advertise tPhyWrData = 2).
+  require(cfg.timeConfig.tPhyWrData == 0,
+    s"UsPhy v1 samples dfi_wrdata in lockstep with dfi_wrdata_en (tPhyWrData == 0); " +
+    s"a non-zero tPhyWrData (${cfg.timeConfig.tPhyWrData}) is not supported.")
   // DBI/DM (JESD79-4B §4.11) is WIRED THROUGH (2026-10-31, conformance audit item 3):
   //   write: the DM pin carries the per-lane DBI_n bit (useWrDbi) or the byte-mask
   //          (non-DBI), serialized in lockstep with DQ via a dedicated OSERDESE3.
   //   read:  rddataDbiN comes from pads.dm_dbi_in (DRAM-driven DM during reads).
-  // L2 (ADR-0013 rev.2): the command path honours ALL DFI phases — the
-  // dramPhase alternation in Step 3 delivers phase i to DRAM cycle i of each
-  // DFI pair (DFI 5.2 §2.1: "The PHY must be able to accept a command on
-  // any and all phases"), so any cmdPhase in [0, frequencyRatio) is valid;
-  // the MC asserts that range itself (DfiController). The former cmdPhase==0
-  // restriction (rev.1, when only phase 0 reached the pins) is obsolete.
+  // L2 (ADR-0013 rev.2): the command path honours BOTH DFI phases (fr == 2) —
+  // the dramPhase alternation in Step 3 delivers phase i to DRAM cycle i of
+  // each DFI pair (DFI 5.2 §2.1: "The PHY must be able to accept a command on
+  // any and all phases"), so any mc cmdPhase in [0, 2) is valid; the MC asserts
+  // that range itself (DfiController). The former cmdPhase==0 restriction
+  // (rev.1, when only phase 0 reached the pins) is obsolete. Extending to
+  // fr >= 3 would require a multi-bit phase selector (see the require above).
   // NOTE: UsPhy v1 does not implement DBI inversion logic. If DBI is enabled in config,
   // the DM/DBI pins are driven low (no inversion). Marked UNVERIFIED_ON_BOARD.
 
@@ -243,10 +259,17 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // dramClk is now an EXTERNAL INPUT (production: driven by internal MMCM from refclk;
   // simulation: provided by TB at the correct frequency = refclk * frequencyRatio).
 
+  // PB1: name the refclk domain so its registers land on a DOCUMENTED clock (refclk)
+  // instead of SpinalHDL's anonymous default domain, which materialised hidden top-level
+  // `clk`/`reset` ports outside the ADR-0012 frozen port list. Every refclk-domain
+  // register is wrapped in `sysDom { ... }`; dramClk-domain registers use `cd { ... }`
+  // (below). Nothing may remain on the default domain or the anonymous ports reappear.
+  val sysDom = ClockDomain(refclk, rst_n)
+
   // Asynchronous reset, 2-stage synchronous release (ADR-0006 consequence).
-  val rst = Reg(Bool()) init(True)
+  val rst = sysDom { Reg(Bool()) init(True) }
   rst := !rst_n
-  val rstSynced = RegNext(rst) init(True)
+  val rstSynced = sysDom { RegNext(rst) init(True) }
 
   // DRAM clock domain (Step 3 phase alternation + Step 6 write leveling).
   // NOTE: `cd { }` (block form) is required for domain switching — `import cd._`
@@ -265,8 +288,8 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // aligns with the 2nd DRAM cycle). Holding phase 0 for the whole DFI cycle
   // makes every command decode TWICE at a rising-edge sampler — proven RED by
   // TC8 (UsPhy + Ddr4PinModel). Fix: dramPhase alternates at DRAM rate and
-  // selects the phase slice below. All phases are honoured, so any mc cmdPhase
-  // in [0, fr) is valid.
+  // selects the phase slice below. At fr == 2 this single-bit toggle covers
+  // both phases, so any mc cmdPhase in [0, 2) is valid.
   //
   // What the MC owns (already met, verified in Task2IDFI/CAAlignment): command
   // encoding (ADR-0008), NOP idle on non-command phases, CKE held on every
@@ -345,8 +368,8 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   val wrEnLive = dfi.write.wr.map(_.wrdataEn).reduce(_||_)
   // Extended DQ-active window (pin-independent: pure RegNext chain of wrEnLive).
   // Shared by the DQ IOBUFs and the DM/DBI serializers below.
-  val wrEnExt  = Reg(Bool()) init(False)
-  val wrEnExt2 = Reg(Bool()) init(False)
+  val wrEnExt  = sysDom { Reg(Bool()) init(False) }
+  val wrEnExt2 = sysDom { Reg(Bool()) init(False) }
   wrEnExt  := wrEnLive
   wrEnExt2 := wrEnExt
 
@@ -530,7 +553,14 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     fbIddelays(l).LOAD     := False
     fbIddelays(l).INC      := False
     fbIddelays(l).CNTVALUEIN := 0
-    fbIddelays(l).DATAIN := pads.dqs_in_t(l)      // sample the DQS as it RETURNS FROM THE DRAM (real closed loop)
+    // PB3: on REAL SILICON the write-leveling sensor is the DQS the DRAM echoes
+    // during WL (JESD79-4B §4.7: the DRAM TERMINATES DQS and feeds the CK-derived
+    // pattern back through the DQ bits, which the controller samples). This flat
+    // model samples pads.dqs_in_t as a SIMULATION SURROGATE standing in for that
+    // echo (the out-of-repo e2e TB synthesises it there). The structure (IDELAYE3
+    // feedback + bang-bang) is real and elaborates; the pin choice is a documented
+    // model boundary, not a silicon claim.
+    fbIddelays(l).DATAIN := pads.dqs_in_t(l)
     fbIddelays(l).IDATAIN := False
     fbIddelays(l).CASC_IN := False
     fbIddelays(l).CASC_RETURN := False
@@ -546,8 +576,10 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // The reference edge is the LOCAL DQS rising edge (dqsToggle is a T-FF on
   // dramClk, so its rising edge lands exactly on a dramClk edge). We sample
   // the RETURNED DQS (fbSample) at that edge:
-  //   fbSample HIGH at dqsToggle-rise -> returned DQS leads  -> delay too big -> CUT (n-1)
-  //   fbSample LOW  at dqsToggle-rise -> returned DQS lags   -> delay too small-> ADD (n+1)
+  //   fbSample HIGH at dqsToggle-rise -> returned DQS lags   -> delay too big -> CUT (n-1)
+  //   fbSample LOW  at dqsToggle-rise -> returned DQS leads  -> delay too small-> ADD (n+1)
+  //   (lead/lag wording reconciled with the inline detector comment below; the
+  //    absolute bang-bang polarity is UNVERIFIED_ON_BOARD per ADR-0002.)
   // Equilibrium: returned DQS coincides with the local DQS edge (net loop
   // delay delta = 0). UNVERIFIED_ON_BOARD per ADR-0002: wrlvlDone is EARNED
   // numerically (counter drift small over 16 DQS periods for 8 straight
@@ -620,7 +652,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   //   Envelope (measured, silicon-semantics OSERDESE3 model): wren window
   //   [ws, ws+20) ns (2 refclk cycles) -> DQ burst [ws+5, ws+25) ns (8 beats
   //   on dramClk edges). The gate window is therefore [ws, ws+32.5) via the
-  //   6-stage dramClk tail below: it covers the burst plus the tWPST
+  //   2-stage dramClk tail below: it covers the burst plus the tWPST
   //   postamble margin (~7.5 ns past the last beat, cf. model observer
   //   POST_UI=5). The free-running TFF is left untouched (WL detector
   //   reference and ODELAYE3 feed keep their phase); only the PAD is gated.
@@ -691,7 +723,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     // NB: tag the register NODE itself (not the result of init(), which is the
     // underlying non-reg data) so SpinalVerilogBoot's auto-sanitizer recognizes
     // this as a sanctioned crossing and does not insert its own 2FF sync.
-    val wlDoneDfi = Reg(Bool())
+    val wlDoneDfi = sysDom { Reg(Bool()) }
     wlDoneDfi.addTag(crossClockDomain) // sanctioned synchronizer input (DFI 5.2 sec 4.10.2; ADR-0020)
     wlDoneDfi.init(False)
     wlDoneDfi := wlDone
@@ -745,7 +777,9 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     rlIddelays(l).RST      := rstSynced
     rlIddelays(l).CE       := True
     rlIddelays(l).EN_VTC   := False
-    rlIddelays(l).LOAD     := False
+    // LOAD is driven in the loop below (PB4): the IDELAYE3 adjustable segment
+    // only takes effect on a LOAD edge; tying it to False froze the trained
+    // rl.delay at DELAY_VALUE and made read leveling a no-op.
     rlIddelays(l).INC      := False
     rlIddelays(l).DATAIN   := pads.dqs_in_t(l)   // DQS as it ARRIVES from the DRAM
     rlIddelays(l).IDATAIN  := False
@@ -786,10 +820,17 @@ case class UsPhy(cfg: DfiConfig) extends Component {
         when(bbConv > 7)  { rlDone  := True }
       }
     }                                      // rlActive && rlDone: hold
-    new Bundle { val delay = rlDelay; val done = rlDone }
+    // PB4: VarLoad pulse (mirrors the write-leveling twin). The IDELAYE3
+    // adjustable segment loads only on a LOAD edge; without it the trained
+    // rl.delay never takes effect and the adjustable path stays frozen.
+    val rlDelayPrev = RegNext(rlDelay)
+    val rlLoadPulse = Reg(Bool()) init(False)
+    rlLoadPulse := rlDelay =/= rlDelayPrev
+    new Bundle { val delay = rlDelay; val done = rlDone; val load = rlLoadPulse }
   }
   for (l <- 0 until byteLanes) {
     rlIddelays(l).CNTVALUEIN := rl.delay
+    rlIddelays(l).LOAD       := rl.load
     rlSample(l) := rlIddelays(l).DATAOUT
   }
   rdDelayOut := rl.delay
@@ -807,7 +848,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     // NB: tag the register NODE itself (not the result of init(), which is the
     // underlying non-reg data) so SpinalVerilogBoot's auto-sanitizer recognizes
     // this as a sanctioned crossing and does not insert its own 2FF sync.
-    val rlDoneDfi = Reg(Bool())
+    val rlDoneDfi = sysDom { Reg(Bool()) }
     rlDoneDfi.addTag(crossClockDomain) // sanctioned synchronizer input (DFI 5.2 sec 4.10.2; ADR-0020)
     rlDoneDfi.init(False)
     rlDoneDfi := rl.done
@@ -832,7 +873,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // Duration matches rden duration (beatCount DFI cycles for BL8/fr=2).
   val tPhyRdlatVal = cfg.timeConfig.tPhyRdlat
   for (p <- 0 until frequencyRatio) {
-    val rdenHist = History(dfi.read.rden(p), tPhyRdlatVal + 1)
+    val rdenHist = sysDom { History(dfi.read.rden(p), tPhyRdlatVal + 1) }
     dfi.read.rd(p).rddataValid := rdenHist(tPhyRdlatVal)
     // DBI_n read-back (JESD79-4B §4.11): the DRAM drives DM during reads; the
     // MC decodes (DfiAlignment) only when useRdDbi (mr5 A12) — otherwise the

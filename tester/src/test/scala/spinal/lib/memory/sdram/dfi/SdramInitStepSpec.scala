@@ -90,10 +90,10 @@ class SdramInitStepSpec extends SpinalAnyFunSuite {
   test("the init spacings are the spec's tMRD / tZQinit, not bare numbers") {
     val preset = SdramInitStep.defaultFor(SdramGeneration.DDR4, Ddr4ModeRegs())
     val tMrd = preset.find(_.kind == SdramInitStep.MRS).get.waitCycles
-    // tMRD = 14 ns min (JESD79-4 sec. 4.19). At 200 MHz DRAM clock (tCK = 5 ns) that is 3 DRAM
-    // cycles = 2 MC cycles at fr=2; the preset uses 4 MC cycles, so the floor is met.
+    // tMRD = 8 nCK (JESD79-4B, flat). At fr=2 that is 4 MC cycles; the preset spaces MRS
+    // writes by ceil(8/fr) MC, so the floor is met at every fr.
     val cfg = Ddr4Cfg(fr = 2)
-    val tMrdMinMcCycles = math.ceil(14.0 / cfg.sdram.cycleTime_ns / cfg.frequencyRatio).toInt
+    val tMrdMinMcCycles = math.ceil(8.0 / cfg.frequencyRatio).toInt
     assert(tMrd >= tMrdMinMcCycles, s"tMRD: the preset spaces MRS writes by $tMrd MC cycles, spec floor at ${cfg.sdram.ddrMHZ} MHz/fr${cfg.frequencyRatio} is $tMrdMinMcCycles")
     val tZq = preset.find(_.kind == SdramInitStep.ZQ).get.waitCycles
     // tZQinit = 1024 nCK (sec. 3.3 step 14 "Wait for both tDLLK and tZQ init completed", sec. 4.12)

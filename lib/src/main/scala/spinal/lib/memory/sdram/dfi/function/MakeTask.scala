@@ -38,9 +38,11 @@ object SdramInitStep {
     * DDR3/DDR2 presets are dual-source verified (see Ddr3InitSequencer/Ddr2InitSequencer);
     * SDR/MYDDR ship init-less (explicit DfiConfig.initSteps injection remains the escape
     * hatch for any generation). */
-  def defaultFor(generation: SdramGeneration, modeRegs: Ddr4ModeRegs): List[SdramInitStep] =
+  def defaultFor(generation: SdramGeneration, modeRegs: Ddr4ModeRegs, fr: Int = 2): List[SdramInitStep] =
+    // DDR4 spacings anchored to JESD79-4B nCK values (tMRD = 8 nCK, tZQinit = 1024 nCK),
+    // converted to MC cycles by the frequency ratio so the preset is correct at every fr.
     generation match {
-      case SdramGeneration.DDR4 => Ddr4InitSequencer(modeRegs = modeRegs, tMrdCycles = 4, zqInitCycles = 512)
+      case SdramGeneration.DDR4 => Ddr4InitSequencer(modeRegs = modeRegs, tMrdCycles = scala.math.ceil(8.0 / fr).toInt, zqInitCycles = scala.math.ceil(1024.0 / fr).toInt)
       case SdramGeneration.DDR3 => Ddr3InitSequencer()
       case SdramGeneration.DDR2 => Ddr2InitSequencer()
       case _                     => Nil
@@ -194,7 +196,12 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   // place (SdramInitStep.defaultFor). Generations without a preset run init-less exactly as
   // before (no engine component is instantiated, initDone == True).
   val initSeq: List[SdramInitStep] =
-    dfiConfig.initSteps.getOrElse(SdramInitStep.defaultFor(sdram.generation, dfiConfig.ddr4ModeRegs))
+    dfiConfig.initSteps.getOrElse(SdramInitStep.defaultFor(sdram.generation, dfiConfig.ddr4ModeRegs, fr = dfiConfig.frequencyRatio))
+  // xprWaitCycles: the tXPR pause before the first MRS. On real silicon tXPR = Max(tXS, 5 nCK)
+  // ~= tXS (200 us after RESET_n de-assertion, JESD79-4B sec. 3.3 step 5) and is absorbed by the
+  // board's power-up sequencing (SdramConfig.ddrStartDelay = 600 us). Here it is a SIMULATION
+  // pacing value (32 MC cycles) that merely lets reset/CKE settle before the first MRS — it is
+  // NOT a protocol timing and must not be read as an assertion on tXPR.
   val initEngine = if (initSeq.nonEmpty) SdramInitSequencer(initSeq, xprWaitCycles = 32) else null
   def initDone: Bool = if (initEngine != null) initEngine.io.done else True
   if (dfiConfig.signalConfig.useCtrlMsg && dfiConfig.bootTraining) io.initDoneOut := initDone
