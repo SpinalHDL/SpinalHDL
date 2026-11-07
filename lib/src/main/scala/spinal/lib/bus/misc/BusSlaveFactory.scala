@@ -41,10 +41,162 @@ import scala.collection.Seq
 case class BusSlaveFactoryConfig(wordEndianness: Endianness = LITTLE){
 }
 
+/**
+  * Aysnc command in the factory's address coordinates
+  *
+  * @param addressWidth Width of the address field
+  * @param dataWidth Width of the data field
+  * @param withData Include write data.
+  * @param withWriteCheck Include the read/write selector (true for write).
+  * @param withMask Include byte write enables.
+  */
+case class BusSlaveFactoryAsyncCmd(
+  addressWidth: Int,
+  dataWidth: Int,
+  withData: Boolean,
+  withWriteCheck: Boolean,
+  withMask: Boolean,
+) extends Bundle {
+  val write = withWriteCheck generate Bool()
+  val address = UInt(addressWidth bits)
+  val data = withData generate Bits(dataWidth bits)
+  val mask = withMask generate Bits(dataWidth / 8 bits)
+}
+
+/**
+  * Backend completion with optional native-word read data.
+  *
+  * @param dataWidth Width of the data field
+  * @param withData Include data field.
+  */
+case class BusSlaveFactoryAsyncRsp(dataWidth: Int, withData: Boolean) extends Bundle {
+  val data = withData generate Bits(dataWidth bits)
+}
+
+/** Single-outstanding backend port in the factory's clock domain.
+  * Each cmd.fire receives one response; rsp.fire captures it, and factory do releases the slot.
+  */
+class BusSlaveFactoryAsyncAccess(cmdType: HardType[BusSlaveFactoryAsyncCmd], rspType: HardType[BusSlaveFactoryAsyncRsp]) extends Area {
+  val cmd = Stream(cmdType)
+  val rsp = Stream(rspType)
+
+  def arbitrateFrom(that: Stream[BusSlaveFactoryAsyncRsp]): Unit = {
+    rsp << that
+  }
+
+  def arbitrateFrom(that: Flow[BusSlaveFactoryAsyncRsp]): Unit = {
+    val overflow = Bool()
+    arbitrateFrom(that.toStream(overflow))
+    assert(!overflow)
+  }
+
+  def driveFrom(that: Stream[BusSlaveFactoryAsyncRsp]): Unit = arbitrateFrom(that)
+  def driveFrom(that: Flow[BusSlaveFactoryAsyncRsp]): Unit = arbitrateFrom(that)
+
+  def arbitrateTo[T <: Data](that: Stream[T]): Unit = {
+    that.valid := cmd.valid
+    cmd.ready := that.ready
+  }
+
+  def arbitrateTo[T <: Data](that: Flow[T]): Unit = {
+    that.valid := cmd.valid
+    cmd.ready := True
+  }
+
+  def driveTo[T <: Data](that: Stream[T])(con: (T, BusSlaveFactoryAsyncAccess) => Unit): Unit = {
+    arbitrateTo(that)
+    con(that.payload, this)
+  }
+
+  def driveTo[T <: Data](that: Flow[T])(con: (T, BusSlaveFactoryAsyncAccess) => Unit): Unit = {
+    arbitrateTo(that)
+    con(that.payload, this)
+  }
+
+  def logic(factory: BusSlaveFactory, mapping: AddressMapping) = new Area {
+    val readable = cmd.withWriteCheck || rsp.withData
+    val writable = cmd.withWriteCheck || !rsp.withData
+    require(readable || writable)
+
+    val readWrite = cmd.withWriteCheck
+
+    val ports = Seq(false, true).filter(w => if (w) writable else readable).map { w =>
+      val p = Stream(Bool())
+      p.valid := False
+      p.payload := Bool(w)
+      p
+    }
+
+    val port = StreamArbiterFactory().roundRobin.transactionLock.buildOn(ports).io.output
+    val isWrite = port.payload
+
+    val writeData = writable generate factory.nonStopWrite(Bits(factory.busDataWidth bits))
+    val byteEnable = factory.writeByteEnable()
+    if (cmd.withMask) {
+      assert(byteEnable != null)
+    }
+    if (readWrite) {
+      cmd.address := isWrite.mux(factory.writeAddress(), factory.readAddress()).resized
+      cmd.write := isWrite
+
+      cmd.data := 0
+      if (cmd.withMask) cmd.mask := 0
+
+      when (isWrite) {
+        cmd.data := writeData
+        if (cmd.withMask) cmd.mask := byteEnable
+      }
+    } else if (writable) {
+      cmd.address := factory.writeAddress().resized
+      cmd.data := writeData
+      if (cmd.withMask) cmd.mask := byteEnable
+    } else {
+      cmd.address := factory.readAddress().resized
+    }
+
+    val commit = False
+    val rspAsync = rsp.s2mPipe()
+    val hasData = RegInit(False) setWhen(cmd.fire) clearWhen(commit)
+
+    cmd.valid := port.valid && !hasData
+    port.ready := commit
+    rspAsync.ready := commit
+    val canRsp = rspAsync.valid && (hasData || cmd.fire)
+
+    if (readable) {
+      factory.onReadPrimitive(mapping, haltSensitive = false, documentation = null) {
+        ports.head.valid := True
+        when(isWrite || !canRsp) { factory.readHalt() }
+      }
+      factory.onReadPrimitive(mapping, haltSensitive = true, documentation = null) {
+        assert(!isWrite)
+        commit := True
+      }
+      factory.readPrimitive(rspAsync.payload.asBits, mapping, 0, null)
+    }
+    if (writable) {
+      factory.onWritePrimitive(mapping, haltSensitive = false, documentation = null) {
+        ports.last.valid := True
+        when(!isWrite || !canRsp) { factory.writeHalt() }
+      }
+      factory.onWritePrimitive(mapping, haltSensitive = true, documentation = null) {
+        assert(isWrite)
+        commit := True
+      }
+    }
+
+    when(rsp.fire) {
+      assert(hasData || cmd.fire)
+    }
+    when(commit) {
+      assert(port.valid && canRsp)
+    }
+  }
+}
 
 /** Bus slave factory is a tool that provide an abstract and smooth way to define register bank
   *
-  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/bus_slave_factory.html Bus Slave Factory documentation]] 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/bus_slave_factory.html Bus Slave Factory documentation]]
   */
 trait BusSlaveFactory extends Area{
 
@@ -838,6 +990,91 @@ trait BusSlaveFactory extends Area{
 
     nonStopWrite(data)
     mem
+  }
+
+  /**
+    * Map bus reads to an address-only command and a read-data response.
+    */
+  def createAsyncRead(mapping: AddressMapping) = {
+    val cmdType: HardType[BusSlaveFactoryAsyncCmd] = BusSlaveFactoryAsyncCmd(
+      addressWidth   = readAddress().getWidth,
+      dataWidth      = busDataWidth,
+      withData       = false,
+      withWriteCheck = false,
+      withMask       = false,
+    )
+
+    val rspType: HardType[BusSlaveFactoryAsyncRsp] = BusSlaveFactoryAsyncRsp(
+      dataWidth      = busDataWidth,
+      withData       = true,
+    )
+
+    val factory = this
+
+    val interface = new BusSlaveFactoryAsyncAccess(cmdType, rspType) {
+      val connector = logic(factory, mapping)
+    }
+
+    interface
+  }
+
+  /**
+    * Map bus writes to address/data/optional byte mask and a
+    * payload-free completion.
+    */
+  def createAsyncWrite(mapping: AddressMapping) = {
+    val cmdType: HardType[BusSlaveFactoryAsyncCmd] = BusSlaveFactoryAsyncCmd(
+      addressWidth   = writeAddress().getWidth,
+      dataWidth      = busDataWidth,
+      withData       = true,
+      withWriteCheck = false,
+      withMask       = writeByteEnable() != null,
+    )
+
+    val rspType: HardType[BusSlaveFactoryAsyncRsp] = BusSlaveFactoryAsyncRsp(
+      dataWidth      = busDataWidth,
+      withData       = false,
+    )
+
+    val factory = this
+
+    val interface = new BusSlaveFactoryAsyncAccess(cmdType, rspType) {
+      val connector = logic(factory, mapping)
+    }
+
+    interface
+  }
+
+  /**
+    * Map bus reads and writes to one port, holding arbitration until factory do.
+    * Read command data/mask are zero; write response data is ignored.
+    *
+    * Note: `createAsyncReadWrite` is not a combination of `createAsyncRead`
+    * and `createAsyncWrite`. If you want to control read port and write port
+    * separately, use both `createAsyncRead` and `createAsyncWrite` instead
+    * of this one.
+    */
+  def createAsyncReadWrite(mapping: AddressMapping) = {
+    val cmdType: HardType[BusSlaveFactoryAsyncCmd] = BusSlaveFactoryAsyncCmd(
+      addressWidth   = readAddress().getWidth max writeAddress().getWidth,
+      dataWidth      = busDataWidth,
+      withData       = true,
+      withWriteCheck = true,
+      withMask       = writeByteEnable() != null,
+    )
+
+    val rspType: HardType[BusSlaveFactoryAsyncRsp] = BusSlaveFactoryAsyncRsp(
+      dataWidth      = busDataWidth,
+      withData       = true,
+    )
+
+    val factory = this
+
+    val interface = new BusSlaveFactoryAsyncAccess(cmdType, rspType) {
+      val connector = logic(factory, mapping)
+    }
+
+    interface
   }
 }
 
