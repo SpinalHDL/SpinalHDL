@@ -92,3 +92,4 @@ sim/simulation_plugins/*
 !.mill-version
 !.scalafmt.conf
 !.travis.yml
+tester/**/dfi/e2e/build/
