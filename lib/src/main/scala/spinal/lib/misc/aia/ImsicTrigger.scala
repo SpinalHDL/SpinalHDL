@@ -59,12 +59,10 @@ object ImsicTriggerMapper {
 
     val busWithOffset = new BusSlaveFactoryAddressWrapper(bus, baseAddress)
     val targetDriveLE = busWithOffset.createAndDriveStream(UInt(registerWidth bits), address = SETEIPNUM_LE_ADDR, documentation = "Set External Interrupt-Pending bit for %s of hart %d by Little-Endian Number".format(if (info.guestId == 0) "non-guest" else s"guest ${info.guestId}", info.hartId))
-    val targetDriveLEBuffer = targetDriveLE.s2mPipe()
 
     val targetDriveBE = busWithOffset.createAndDriveStream(UInt(registerWidth bits), address = SETEIPNUM_BE_ADDR, documentation = "Set External Interrupt-Pending bit for %s of hart %d by Big-Endian Number".format(if (info.guestId == 0) "non-guest" else s"guest ${info.guestId}", info.hartId)).map(EndiannessSwap(_))
-    val targetDriveBEBuffer = targetDriveBE.s2mPipe()
 
-    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.buildOn(targetDriveLEBuffer, targetDriveBEBuffer)
+    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.buildOn(targetDriveLE, targetDriveBE)
 
     val trigger = arbiter.io.output
   }
