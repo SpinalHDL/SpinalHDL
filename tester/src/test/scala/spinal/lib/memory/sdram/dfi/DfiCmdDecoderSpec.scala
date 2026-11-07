@@ -59,4 +59,25 @@ class DfiCmdDecoderSpec extends SpinalAnyFunSuite {
     assert(DfiCmdDecoder.Kind.labels(Kind.MRS) == "MRS")
     assert(DfiCmdDecoder.Kind.labels(Kind.ZQCL) == "ZQCL")
   }
+
+  test("DfiCmdDecoder.decodeLegacy: legal legacy (DDR2/DDR3) opcodes decode correctly") {
+    // Micron ddr3.v / ddr2.v model encoding (RAS_n, CAS_n, WE_n), 1 = pin HIGH, chip CS-selected.
+    assert(DfiCmdDecoder.decodeLegacy(0, 1, 1, 0) == Kind.ACT)   // ACTIVATE
+    assert(DfiCmdDecoder.decodeLegacy(1, 0, 0, 0) == Kind.WR)    // WRITE
+    assert(DfiCmdDecoder.decodeLegacy(1, 0, 1, 0) == Kind.RD)    // READ
+    assert(DfiCmdDecoder.decodeLegacy(0, 1, 0, 0) == Kind.PRE)   // PRECHARGE one bank (A10=L)
+    assert(DfiCmdDecoder.decodeLegacy(0, 1, 0, 1) == Kind.PRE)   // PRECHARGE all (PREA, A10=H)
+    assert(DfiCmdDecoder.decodeLegacy(0, 0, 1, 0) == Kind.REF)   // REFRESH
+    assert(DfiCmdDecoder.decodeLegacy(0, 0, 0, 0) == Kind.MRS)   // LOAD_MODE / EMRS
+    assert(DfiCmdDecoder.decodeLegacy(1, 1, 0, 1) == Kind.ZQCL)  // ZQ cal long (A10=H, DDR3)
+    assert(DfiCmdDecoder.decodeLegacy(1, 1, 1, 0) == Kind.NOP)   // NOP / DESELECT pattern
+  }
+
+  test("DfiCmdDecoder.decodeLegacy: non-emittable legacy patterns are flagged ILLEGAL") {
+    // (1,1,0) with A10=L is not a command the MC emits (ZQCL requires A10=H).
+    assert(DfiCmdDecoder.decodeLegacy(1, 1, 0, 0) == Kind.ILLEGAL)
+    // (0,1,1) is ACT already; a few other combos the MC never drives on an active CS.
+    assert(DfiCmdDecoder.decodeLegacy(1, 1, 1, 1) == Kind.NOP)
+    assert(DfiCmdDecoder.decodeLegacy(1, 0, 0, 1) == Kind.WR)    // A10 don't-care for WRITE
+  }
 }

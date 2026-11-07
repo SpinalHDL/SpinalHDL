@@ -648,6 +648,18 @@ class DfiMemoryAgent(
         val active = enPerChip & !ras & cas & weN
         val write = enPerChip & ras & !cas & !weN
         val read = enPerChip & ras & !cas & weN
+        // R6 independent-decode cross-check (legacy): decode PRE/REF too and log every
+        // command (rank, kind, bankNorm) in lockstep with the [AGENTCMD] prints, mirroring
+        // the modern path, so DfiControllerTester's independent decoder can be diffed
+        // against this order-aligned sequence. Additive logging only -- no change to the
+        // decode/data-flow logic above.
+        val pre = enPerChip & !ras & cas & !weN
+        val ref = enPerChip & !ras & !cas & weN
+        if (active) decodedCmdLog += ((idPerChip, "ACT", cmdBank.toLong))
+        if (write) decodedCmdLog += ((idPerChip, "WR", cmdBank.toLong))
+        if (read) decodedCmdLog += ((idPerChip, "RD", cmdBank.toLong))
+        if (pre) decodedCmdLog += ((idPerChip, "PRE", if (a10 == 1L) -1L else cmdBank.toLong))
+        if (ref) decodedCmdLog += ((idPerChip, "REF", -1L))
         if (legacyInitAware) {
           // cmd pin encoding = Micron ddr3.v model (cmd = {ras_n, cas_n, we_n}, all active low):
           // MRS/EMRS = 000 (bank = MR/EMRS number, address = OP code), ZQCL = 110 + A10=H.
@@ -659,7 +671,9 @@ class DfiMemoryAgent(
           }
           if (zqcl) zqclSeenPerRank(idPerChip) = true
           if (mrs) println(s"[AGENTCMD] $agentCycle r$idPerChip MRS ${cmdBank.toInt} ${java.lang.Long.toHexString(cmdAddr)}")
+          if (mrs) decodedCmdLog += ((idPerChip, "MRS", cmdBank.toLong))
           if (zqcl) println(s"[AGENTCMD] $agentCycle r$idPerChip ZQCL -1 -1")
+          if (zqcl) decodedCmdLog += ((idPerChip, "ZQCL", -1L))
           // Traffic before the mode-register file is written (MR0 included) is a controller bug:
           // an uninitialized SDRAM ignores commands. Checked once, at the first ACT/WR/RD.
           if ((active || write || read) && !initChecked) {
