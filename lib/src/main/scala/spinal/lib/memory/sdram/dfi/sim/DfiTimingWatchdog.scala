@@ -25,11 +25,15 @@ import scala.collection.mutable
   * data-retention violation. `TaskTimingConfig` is the layer that converts; this file converts
   * independently and asserts against the DRAM's requirement.
   *
-  * Enforced (JESD79-4B sec. 4.19 key AC timing, parameter tables p.169-176):
-  *   minima  tRAS, tRP, tRCD, tRFC, tRRD_S/tRRD_L, tFAW, tWTR_S/tWTR_L, tRTP, tCCD_S/tCCD_L,
-  *           tRTW, tMRD, tMOD, tZQoper
-  *   maxima  tRAS <= 9 x tREFI, and the tREFI window itself (a refresh must be issued inside
-  *           every tREFI)
+  * Enforced (key AC timing; DDR4 from JESD79-4B sec. 4.19, parameter tables p.169-176;
+  * DDR3/DDR2 from JESD79-3/79-2 cross-checked against the in-repo Micron model .vh params):
+  *   minima  tRAS, tRP, tRCD, tRFC, tRRD_S/tRRD_L, tFAW (gated on generation.FAW),
+  *           tWTR_S/tWTR_L, tRTP, tCCD_S/tCCD_L, tRTW,
+  *           tMRD (8/4/2 nCK for DDR4/DDR3/DDR2),
+  *           tMOD (max(24nCK,15ns) DDR4; max(12nCK,15ns) DDR3; none for DDR2), tZQoper
+  *   maxima  tRAS <= tRASmax (9 x tREFI DDR4; 3.75 x tREFI DDR3/DDR2), and the tREFI window
+  *           itself (a refresh must be issued inside every tREFI; tREFI mirrors
+  *           SdramConfig.tREF including the per-row /rowSize division)
   * Not enforced: tXP/tXAR/tSR/tPD/tCKE (no CKE or low-power path exists in the controller yet),
   * tRFCsb, tECS, tAL.
   */
@@ -55,12 +59,31 @@ class DfiTimingWatchdog(cfg: DfiConfig, verbose: Boolean = sys.env.get("DFI_TIMI
   val tCCD_Lmc = mcOfDram(sdram.generation.tCCD_L)
   val tCCD_Smc = mcOfDram(sdram.generation.tCCD_S)
   val tRTWmc = mcOfDram(sdram.tRTW)
-  val tMRDmc = mcOfDram(8) // JESD79-4B: tMRD = 8 nCK (flat, no ns floor)
-  val tMODmc = math.max(mcOfDram(24), mcOfNs(15.0)) // JESD79-4B: tMOD = max(24 nCK, 15 ns)
+  // Generation-aware MRS/refresh limits. Per-generation values:
+  //   DDR4 (JESD79-4B): tMRD = 8 nCK;                tMOD = max(24 nCK, 15 ns); tRAS(max) = 9 x tREFI
+  //   DDR3 (JESD79-3):  tMRD = 4 nCK;                tMOD = max(12 nCK, 15 ns); tRAS(max) = 3.75 x tREFI
+  //   DDR2 (JESD79-2):  tMRD = 2 nCK;                no tMOD parameter;          tRAS(max) = 3.75 x tREFI
+  // DDR3/DDR2 nCK floors cross-checked against the in-repo Micron behavioural models'
+  // parameters (2048Mb_ddr3_parameters.vh: TMRD=4; ddr2_parameters.vh: TMRD=2).
+  val tMRDmc = sdram.generation match {
+    case SdramGeneration.DDR4 => mcOfDram(8)
+    case SdramGeneration.DDR3 | SdramGeneration.MYDDR => mcOfDram(4)
+    case SdramGeneration.DDR2 => mcOfDram(2)
+    case _ => mcOfDram(8) // SDRAM etc.: keep the conservative DDR4 floor
+  }
+  val tMODmc = sdram.generation match {
+    case SdramGeneration.DDR4 => math.max(mcOfDram(24), mcOfNs(15.0))
+    case SdramGeneration.DDR3 | SdramGeneration.MYDDR => math.max(mcOfDram(12), mcOfNs(15.0))
+    case _ => 0L // DDR2/SDRAM: no tMOD -> the MRS->PRE check deactivates (gap < 0 is never true)
+  }
   val tZQCLmc = mcOfDram(512) // tZQoper = 512 nCK (tZQinit = 1024 nCK covers the init ZQ)
-  val tREFImc = mcOfNs((if (sdram.sdramtime.REF_NS != 0) sdram.sdramtime.REF_NS
-                        else sdram.sdramtime.REF * 1000.0) / sdram.sdramtime.REF_RATE)
-  val tRASmaxmc = 9 * tREFImc // JESD79-4B: tRAS(max) = 9 x tREFI
+  // tREFI: mirror SdramConfig.tREF EXACTLY -- `REF` is the TOTAL time for all rows
+  // (e.g. 64000 us over 8192 rows ~= 7.8 us/row), so the per-row interval is
+  // REF*1000/rowSize ns (then /REF_RATE). The old expression forgot /rowSize, overstating
+  // tREFI by 2^rowWidth and silently disabling the tREFI-window and tRAS-max checks.
+  val tREFImc = mcOfNs((if (sdram.sdramtime.REF_NS != 0) sdram.sdramtime.REF_NS.toDouble
+                        else (sdram.sdramtime.REF * 1000.0) / sdram.rowSize) / sdram.sdramtime.REF_RATE)
+  val tRASmaxmc = math.ceil((if (sdram.generation == SdramGeneration.DDR4) 9.0 else 3.75) * tREFImc).toLong
 
   val summary = f"tRAS=$tRASmc tRP=$tRPmc tRCD=$tRCDmc tRFC=$tRFCmc tFAW=$tFAWmc tRRD=$tRRDmc/$tRRD_Smc " +
     f"tWTR=$tWTRmc/$tWTR_Smc tRTP=$tRTPmc tCCD=$tCCD_Lmc/$tCCD_Smc tREFI=$tREFImc tMRD=$tMRDmc MC cycles " +
@@ -88,7 +111,7 @@ class DfiTimingWatchdog(cfg: DfiConfig, verbose: Boolean = sys.env.get("DFI_TIMI
   def clean: Boolean = failures.isEmpty
 
   private def fail(cycle: Long, what: String, got: Long, need: String): Unit = {
-    val msg = s"JESD79-4B timing violation at MC cycle $cycle: $what observed $got, requires $need"
+    val msg = s"DRAM timing violation at MC cycle $cycle: $what observed $got, requires $need"
     failures += msg
     if (verbose) println(s"[TIMING] $msg")
   }
@@ -112,7 +135,7 @@ class DfiTimingWatchdog(cfg: DfiConfig, verbose: Boolean = sys.env.get("DFI_TIMI
       val w = actWindow(rank)
       w.enqueue(cycle)
       while (w.length > 4) w.dequeue()
-      if (w.length == 4 && (w.last - w.head) < tFAWmc)
+      if (sdram.generation.FAW && w.length == 4 && (w.last - w.head) < tFAWmc)
         fail(cycle, "tFAW (four ACTs inside one window)", w.last - w.head, s">= $tFAWmc MC cycles")
       if (lastRef(rank) >= 0 && cycle - lastRef(rank) < tRFCmc)
         fail(cycle, "tRFC (REF->ACT)", cycle - lastRef(rank), s">= $tRFCmc MC cycles")
@@ -139,7 +162,7 @@ class DfiTimingWatchdog(cfg: DfiConfig, verbose: Boolean = sys.env.get("DFI_TIMI
         if (lastAct(i) >= 0 && lastPre(i) < lastAct(i)) {
           val held = cycle - lastAct(i)
           if (held < tRASmc) fail(cycle, s"tRAS min (ACT->PRE bank $x)", held, s">= $tRASmc MC cycles")
-          if (held > tRASmaxmc) fail(cycle, s"tRAS max (ACT->PRE bank $x)", held, s"<= $tRASmaxmc MC cycles (9 x tREFI)")
+          if (held > tRASmaxmc) fail(cycle, s"tRAS max (ACT->PRE bank $x)", held, s"<= $tRASmaxmc MC cycles (${if (sdram.generation == SdramGeneration.DDR4) "9" else "3.75"} x tREFI)")
           if (lastRead(i) >= 0 && cycle - lastRead(i) < tRTPmc)
             fail(cycle, s"tRTP (RD->PRE bank $x)", cycle - lastRead(i), s">= $tRTPmc MC cycles")
         }
