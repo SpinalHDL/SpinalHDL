@@ -337,12 +337,15 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           // consecutive write commands at the command phase and compares it to the floor the
           // scheduler must enforce when a CS switch is possible (multi-CS + gap>0).
           // ---- independent command-decode cross-check state (DfiCmdDecoder vs DfiMemoryAgent) ----
-          // DDR4-only (modern command bus) and off for the parity-injection case (a parity-dropped
-          // command desyncs the two logs: the agent skips it, the raw-pin decoder would not).
-          val crossCheckDecode = (generation == SdramGeneration.DDR4) && !injectParityError
+          // Off for the parity-injection case (a parity-dropped command desyncs the two logs:
+          // the agent skips it, the raw-pin decoder would not). Covers BOTH buses: the modern
+          // (DDR4) Table-16 opcode via DfiCmdDecoder.decode and the legacy (DDR2/DDR3)
+          // RAS/CAS/WE encoding via DfiCmdDecoder.decodeLegacy.
+          val crossCheckDecode = !injectParityError
           val myDecodeLog = scala.collection.mutable.ArrayBuffer[(Int, String, Long)]()
           var illegalDecodeCycles = 0L
           var illegalDecodeDetail = ""
+          val monModernCmdBus = dut.dfiConfig.sdram.generation.hasModernCmdBus
           val monCsNum = dut.dfiConfig.chipSelectNumber
           val monFr = dut.dfiConfig.frequencyRatio
           val monCsPhase = dut.dfiConfig.timeConfig.cmdPhase
@@ -363,7 +366,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               val csNum = dut.dfiConfig.chipSelectNumber
               val csNAll = dut.io.dfi.control.csN.toLong
               val ckeAll = dut.io.dfi.control.cke.toLong
-              val actNB = ((dut.io.dfi.control.actN.toLong >> cp) & 1L).toInt
+              val actNB = if (monModernCmdBus) ((dut.io.dfi.control.actN.toLong >> cp) & 1L).toInt else 0
               val rasB = ((dut.io.dfi.control.rasN.toLong >> cp) & 1L).toInt
               val casB = ((dut.io.dfi.control.casN.toLong >> cp) & 1L).toInt
               val weB = ((dut.io.dfi.control.weN.toLong >> cp) & 1L).toInt
@@ -377,7 +380,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               val cmdBank = (dut.io.dfi.control.bank.toLong >> (cp * bankW)) & ((1L << bankW) - 1)
               val dfiBankW = dut.dfiConfig.dfiBankWidth
               def xflatBank(ba: Long): Long = (cmdBg << dfiBankW) | (ba & ((1L << dfiBankW) - 1))
-              val xkind = DfiCmdDecoder.decode(actNB, rasB, casB, weB, a10B)
+              val xkind = if (monModernCmdBus) DfiCmdDecoder.decode(actNB, rasB, casB, weB, a10B) else DfiCmdDecoder.decodeLegacy(rasB, casB, weB, a10B)
               if (xkind != DfiCmdDecoder.Kind.NOP) {
                 var xr = 0
                 while (xr < csNum) {
@@ -393,7 +396,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                     val xbank = xkind match {
                       case DfiCmdDecoder.Kind.PRE                     => if (a10B == 1) -1L else xflatBank(cmdBank).toLong
                       case DfiCmdDecoder.Kind.REF | DfiCmdDecoder.Kind.ZQCL => -1L
-                      case DfiCmdDecoder.Kind.MRS                     => (((cmdBg & 1L) << 2) | (cmdBank & 3L)).toLong
+                      case DfiCmdDecoder.Kind.MRS                     => if (monModernCmdBus) (((cmdBg & 1L) << 2) | (cmdBank & 3L)).toLong else cmdBank.toLong
                                                                          case _ => xflatBank(cmdBank).toLong
                     }
                     myDecodeLog += ((xr, DfiCmdDecoder.Kind.labels(xkind), xbank))
@@ -740,7 +743,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             val agentSeq = dfiMemoryAgent.decodedCmdLog.toList
             val mineSeq = myDecodeLog.toList
             assert(illegalDecodeCycles == 0,
-              s"$name: [XDECODE] independent decoder flagged $illegalDecodeCycles illegal opcode(s) on an active CS (first: $illegalDecodeDetail) - the DUT emitted a command outside Table 16")
+              s"$name: [XDECODE] independent decoder flagged $illegalDecodeCycles illegal opcode(s) on an active CS (first: $illegalDecodeDetail) - the DUT emitted a command outside the generation's command set")
             assert(mineSeq.size == agentSeq.size,
               s"$name: [XDECODE] size mismatch: independent=${mineSeq.size} agent=${agentSeq.size} (first8 independent=${mineSeq.take(8)}, agent=${agentSeq.take(8)})")
             val diffIdx = (0 until math.min(mineSeq.size, agentSeq.size)).find(i => mineSeq(i) != agentSeq(i))

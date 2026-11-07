@@ -18,9 +18,10 @@ package spinal.lib.memory.sdram.dfi
   * with no decoder in the loop) — that suite is the defence against a shared misconception of
   * Table 16 itself. Together they cover encode (golden) and decode (this cross-check).
   *
-  * DDR4 only: the modern command bus (ACT_n present) is DDR4. Older generations use a
-  * CS-strobed legacy bus and are out of scope here (the agent gates the same way via
-  * `modernCmdBus`).
+  * Both buses: `decode` handles the modern (DDR4, ACT_n present) Table 16 opcode;
+  * `decodeLegacy` handles the CS-strobed DDR2/DDR3 (RAS_n/CAS_n/WE_n, no ACT_n) encoding,
+  * authored from the Micron ddr3.v/ddr2.v model (the deployment-target silicon reference).
+  * The agent gates the same way via `modernCmdBus`.
   */
 object DfiCmdDecoder {
 
@@ -74,5 +75,37 @@ object DfiCmdDecoder {
       // Flagging them (rather than silently dropping, as the agent does) turns a spurious
       // appearance into a loud cross-check failure instead of a silent no-op.
       case _                               => Kind.ILLEGAL
+    }
+
+  /**
+   * Decode one LEGACY (DDR2/DDR3) command-slot opcode. There is NO actN pin: with the chip
+   * CS-selected, the command is the (RAS_n, CAS_n, WE_n) level pattern. Authored from the
+   * Micron ddr3.v / ddr2.v behavioural-model encoding ({cs,ras,cas,we}, all active-low,
+   * 1 = pin HIGH) -- the deployment-target silicon reference -- NOT copied from the agent's
+   * boolean chain. PRE and PREA share the PRE label (A10 distinguishes them; the caller
+   * exports bank = -1 for PREA, exactly as the modern path does).
+   *
+   *   ACT  (RAS_n,CAS_n,WE_n) = (0,1,1)
+   *   WR   = (1,0,0)
+   *   RD   = (1,0,1)
+   *   PRE  = (0,1,0)        (A10=H -> PREA)
+   *   REF  = (0,0,1)
+   *   MRS  = (0,0,0)        (bank = MR/EMRS select, address = OP code)
+   *   ZQCL = (1,1,0) + A10=H
+   *   NOP  = (1,1,1)
+   */
+  def decodeLegacy(rasN: Int, casN: Int, weN: Int, a10: Int): Kind =
+    (rasN, casN, weN) match {
+      case (0, 1, 1)                   => Kind.ACT
+      case (1, 0, 0)                   => Kind.WR
+      case (1, 0, 1)                   => Kind.RD
+      case (0, 1, 0)                   => Kind.PRE   // a10=H -> PREA (same label)
+      case (0, 0, 1)                   => Kind.REF
+      case (0, 0, 0)                   => Kind.MRS
+      case (1, 1, 0) if a10 == 1       => Kind.ZQCL
+      case (1, 1, 1)                   => Kind.NOP
+      // Anything else on an active CS the MC never emits (e.g. (1,1,0)+a10=0, (0,1,1) is ACT
+      // already covered, (1,0,*) covered) -> flag loudly rather than silently drop.
+      case _                           => Kind.ILLEGAL
     }
 }
