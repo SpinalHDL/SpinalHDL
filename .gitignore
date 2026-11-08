@@ -92,3 +92,7 @@ sim/simulation_plugins/*
 !.mill-version
 !.scalafmt.conf
 !.travis.yml
+tester/**/dfi/e2e/build/
+tester/**/dfi/e2e/build_ddr2/
+tester/src/test/python/spinal/SdramXdr/E2eDdr2Tester/results.xml
+tester/src/test/python/spinal/SdramXdr/E2eDdr2Tester/e2e_run.log
