@@ -36,7 +36,7 @@ class ForkLink(val up : Node, override val downs : Seq[Node], synchronous: Boole
 
     val linkEnable = (!synchronous) generate Vec(RegInit(True), downs.size).setCompositeName(this, "linkEnable")
     if (synchronous) {
-      up.ready := downs.map(_.ready).reduce(_ && _)
+      up.ready := downs.map(_.ready).reduceBalancedTree(_ && _)
       downs.foreach(_.valid := up.isValid && up.ready)
       assert(downs.forall(_.ctrl.forgetOne.isEmpty))
     } else {

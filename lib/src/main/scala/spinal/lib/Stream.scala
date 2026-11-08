@@ -689,7 +689,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   def formalCovers(back2BackCycles: Int = 1) = new Composite(this, "covers") {
     import spinal.core.formal._
-    val hist = History(fire, back2BackCycles).reduce(_ && _)
+    val hist = History(fire, back2BackCycles).reduceBalancedTree(_ && _)
     cover(hist)
     cover(isStall)
     // doubt that if this is required in generic scenario.
@@ -935,7 +935,7 @@ class StreamArbiter[T <: Data](dataType: HardType[T],
     io.chosenOH := 1
   }
   val multiPort = (portCount > 1) generate new Area {
-    io.output.valid := (io.inputs, maskRouted).zipped.map(_.valid & _).reduce(_ | _)
+    io.output.valid := (io.inputs, maskRouted).zipped.map(_.valid & _).reduceBalancedTree(_ | _)
     io.output.payload := MuxOH(maskRouted,Vec(io.inputs.map(_.payload)))
     (io.inputs, maskRouted).zipped.foreach { case(input, mask) => input.ready := mask & io.output.ready }
 
@@ -1345,7 +1345,7 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
   if (portCount == 1) {
     outputs.head << input
   } else if (synchronous) {
-    input.ready := outputs.map(_.ready).reduce(_ && _)
+    input.ready := outputs.map(_.ready).reduceBalancedTree(_ && _)
     outputs.foreach(_.valid := input.valid && input.ready)
     outputs.foreach(_.payload := input.payload)
   } else {
@@ -1413,7 +1413,7 @@ object StreamJoin {
     val payload = Vec(sources.map(_.payload))
     val combined = Stream(payload)
     combined.payload := payload
-    combined.valid := sources.map(_.valid).reduce(_ && _)
+    combined.valid := sources.map(_.valid).reduceBalancedTree(_ && _)
     sources.foreach(_.ready := combined.fire)
     combined
   }
@@ -1424,7 +1424,7 @@ object StreamJoin {
   def apply(sources: Seq[Stream[_]]): Event = {
     val event = Event
     val eventFire = event.fire
-    event.valid := sources.map(_.valid).reduce(_ && _)
+    event.valid := sources.map(_.valid).reduceBalancedTree(_ && _)
     sources.foreach(_.ready := eventFire)
     event
   }
@@ -1749,10 +1749,10 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   //}
 
   def formalContains(word: T): Bool = {
-    formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckOutputStage(_ === word.pull())
+    formalCheckRam(_ === word.pull()).reduceBalancedTree(_ || _) || formalCheckOutputStage(_ === word.pull())
   }
   def formalContains(cond: T => Bool): Bool = {
-    formalCheckRam(cond).reduce(_ || _) || formalCheckOutputStage(cond)
+    formalCheckRam(cond).reduceBalancedTree(_ || _) || formalCheckOutputStage(cond)
   }
 
   def formalCount(word: T): UInt = {

@@ -21,6 +21,7 @@
 package spinal.lib.math
 
 import spinal.core._
+import spinal.lib._
 import scala.collection.Seq
 
 
@@ -41,7 +42,7 @@ case class Bcd(digitCount: Int) extends Bundle {
   val digits = Vec(UInt(4 bits), digitCount)
 
   def bitWidth: Int = digitCount * 4
-  def isZero: Bool = digits.map(_ === 0).reduce(_ && _)
+  def isZero: Bool = digits.map(_ === 0).reduceBalancedTree(_ && _)
 
   def +(that: Bcd): Bcd = {
     val n = Math.max(this.digitCount, that.digitCount)
@@ -116,7 +117,7 @@ case class Bcd(digitCount: Int) extends Bundle {
   def >(that: Bcd): Bool = that < this
   def <=(that: Bcd): Bool = !(this > that)
   def >=(that: Bcd): Bool = !(this < that)
-  def ===(that: Bcd): Bool = zipDigits(that).map { case (a, b) => a === b }.reduce(_ && _)
+  def ===(that: Bcd): Bool = zipDigits(that).map { case (a, b) => a === b }.reduceBalancedTree(_ && _)
   def =/=(that: Bcd): Bool = !(this === that)
 
   def apply(offset: UInt, count: Int): Bcd = {
