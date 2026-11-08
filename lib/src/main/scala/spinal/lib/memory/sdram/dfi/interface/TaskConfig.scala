@@ -15,9 +15,19 @@ case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
 
   def WTR = time(dfiConfig.sdram.tWTR)
 
+  /** DDR4 bank-group variants; equal to the L/shared value for pre-DDR4 generations. */
+  def WTR_S = time(dfiConfig.sdram.tWTR_S)
+
   def RTP = time(dfiConfig.sdram.tRTP)
 
   def RRD = time(dfiConfig.sdram.tRRD)
+
+  def RRD_S = time(dfiConfig.sdram.tRRD_S)
+
+  // tCCD_L/S arrive in nCK (generation table); time() converts nCK -> MC cycles.
+  def CCD_L = time(dfiConfig.sdram.generation.tCCD_L)
+
+  def CCD_S = time(dfiConfig.sdram.generation.tCCD_S)
 
   def RTW = time(dfiConfig.sdram.tRTW)
 
@@ -48,7 +58,7 @@ case class BusAddress(dfiConfig: DfiConfig) extends Bundle {
   val row = UInt(dfiConfig.sdram.rowWidth bits)
   val cs = UInt(log2Up(dfiConfig.chipSelectNumber) bits)
   def getRBCAddress(addr: UInt) = addr(log2Up(dfiConfig.sdram.bytePerWord), dfiConfig.sdram.wordAddressWidth bits)
-  def getButeAddress(addr: UInt) = addr(0, log2Up(dfiConfig.sdram.bytePerWord) bits)
+  def getByteAddress(addr: UInt) = addr(0, log2Up(dfiConfig.sdram.bytePerWord) bits)
   def getCsAddress(addr: UInt) =
     addr(dfiConfig.sdram.byteAddressWidth, log2Up(dfiConfig.chipSelectNumber) bits)
 }
@@ -116,6 +126,10 @@ case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle 
   val address = BusAddress(dfiConfig)
   val context = Bits(taskConfig.contextWidth bits)
   val prechargeAll, refresh = Bool() // OH encoded
+  // DDR4-only ops: MRS writes the OP code held in address.row with the MR select in the
+  // low 3 bits of address.bank ({MRSEL2=BG0, MRSEL1:0=BA1:0}); ZQ is the ZQCL command.
+  // They stay False for every legacy generation, so legacy behavior is unchanged.
+  val mrs, zq = Bool()
 
   def init(): OpTasks = {
     val ret = RegNext(this).setCompositeName(this, "init", true)
@@ -125,6 +139,8 @@ case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle 
     ret.active init (False)
     ret.prechargeAll init (False)
     ret.refresh init (False)
+    ret.mrs init (False)
+    ret.zq init (False)
     ret
   }
 

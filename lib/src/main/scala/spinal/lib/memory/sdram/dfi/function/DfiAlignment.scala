@@ -24,14 +24,14 @@ case class CAAlignment(config: DfiConfig) extends Component {
   // cmd
   if (config.useAckN) io.output.actN := Bits(widthOf(io.output.actN) bits).setAll()
   io.output.csN := Bits(widthOf(io.output.csN) bits).setAll()
-  io.output.rasN := Bits(widthOf(io.output.rasN) bits).setAll()
-  io.output.casN := Bits(widthOf(io.output.casN) bits).setAll()
-  io.output.weN := Bits(widthOf(io.output.weN) bits).setAll()
+  if (config.useRasN) io.output.rasN := Bits(widthOf(io.output.rasN) bits).setAll()
+  if (config.useCasN) io.output.casN := Bits(widthOf(io.output.casN) bits).setAll()
+  if (config.useWeN) io.output.weN := Bits(widthOf(io.output.weN) bits).setAll()
   if (config.useCid) io.output.cid := Bits(widthOf(io.output.cid) bits).clearAll()
 
   // address
   if (config.useBg) io.output.bg := Bits(widthOf(io.output.bg) bits).assignDontCare()
-  io.output.bank := Bits(widthOf(io.output.bank) bits).clearAll()
+  if (config.useBank) io.output.bank := Bits(widthOf(io.output.bank) bits).clearAll()
   io.output.address := Bits(widthOf(io.output.address) bits).clearAll()
 
   def csN = io.output.csN.subdivideIn(config.frequencyRatio slices)
@@ -44,13 +44,13 @@ case class CAAlignment(config: DfiConfig) extends Component {
       if (config.useAckN) io.output.actN.subdivideIn(config.frequencyRatio slices)(i) := io.cmd(i).actN.asBits
       if (config.useCid) io.output.cid.subdivideIn(config.frequencyRatio slices)(i) := io.cmd(i).cid.asBits
       csN(i) := io.cmd(i).csN.asBits
-      casN(i) := io.cmd(i).casN.asBits
-      rasN(i) := io.cmd(i).rasN.asBits
-      weN(i) := io.cmd(i).weN.asBits
+      if (config.useCasN) casN(i) := io.cmd(i).casN.asBits
+      if (config.useRasN) rasN(i) := io.cmd(i).rasN.asBits
+      if (config.useWeN) weN(i) := io.cmd(i).weN.asBits
     }
     when(io.address(i).valid) {
       if (config.useBg) io.output.bg(i * config.bankGroupWidth, config.bankGroupWidth bits) := io.address(i).bg
-      io.output.bank(i * config.bankWidth, config.bankWidth bits) := io.address(i).bank
+      if (config.useBank) io.output.bank(i * config.bankWidth, config.bankWidth bits) := io.address(i).bank
       io.output.address(i * config.addressWidth, config.addressWidth bits) := io.address(i).address
     }
   }
@@ -72,6 +72,9 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
   val rdDataTemp = Vec(Stream(Fragment(DfiRdData(config))), config.frequencyRatio)
   rdDataTemp.foreach(_.last.clear())
+  // DBI is not implemented at this stage: give the DDR4-only field an explicit
+  // don't-care so elaboration's no-driver check passes without faking a value.
+  if (config.useRddataDbiN) rdDataTemp.foreach(_.rdDataDbiN.assignDontCare())
   for (i <- 0 until (config.frequencyRatio)) {
     rdDataTemp(i).valid := dfiRd(i).rddataValid
     rdDataTemp(i).rdData.assignDontCare()
@@ -122,7 +125,7 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
 case class WrAlignment(config: DfiConfig) extends Component {
   val io = new Bundle {
-    val inputCs = Vec(slave(Flow(DfiWrCs(config))), config.frequencyRatio)
+    val inputCs = config.useWrdataCsN generate Vec(slave(Flow(DfiWrCs(config))), config.frequencyRatio)
     val input = Vec(slave(Flow(DfiWrData(config))), config.frequencyRatio)
     val output = master(DfiWriteInterface(config))
   }
@@ -139,9 +142,9 @@ case class WrAlignment(config: DfiConfig) extends Component {
     delay := timeConfig.tPhyWrData / frequencyRatio
   }
 
-  val wrdatahistary = Vec(Vec(DfiWrData(config), timeConfig.tPhyWrData / frequencyRatio + 2), frequencyRatio)
+  val wrdataHistory = Vec(Vec(DfiWrData(config), timeConfig.tPhyWrData / frequencyRatio + 2), frequencyRatio)
   for (i <- 0 until (frequencyRatio)) {
-    wrdatahistary(i) := History(io.input(i).payload, 0 to timeConfig.tPhyWrData / frequencyRatio + 1)
+    wrdataHistory(i) := History(io.input(i).payload, 0 to timeConfig.tPhyWrData / frequencyRatio + 1)
     io.output.wr(i).wrdata.assignDontCare()
     io.output.wr(i).wrdataMask.assignDontCare()
   }
@@ -149,7 +152,7 @@ case class WrAlignment(config: DfiConfig) extends Component {
   for (phase <- 0 until (frequencyRatio)) {
     io.output.wr(phase).wrdata := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
       .muxListDc(
-        wrdatahistary
+        wrdataHistory
           .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
           .zipWithIndex
           .map(t => (t._2, t._1))
@@ -157,7 +160,7 @@ case class WrAlignment(config: DfiConfig) extends Component {
       .wrData
     io.output.wr(phase).wrdataMask := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
       .muxListDc(
-        wrdatahistary
+        wrdataHistory
           .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
           .zipWithIndex
           .map(t => (t._2, t._1))
