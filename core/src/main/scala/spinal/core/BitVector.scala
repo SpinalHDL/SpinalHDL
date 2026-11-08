@@ -57,7 +57,7 @@ abstract class BitVector extends BaseType with Widthable {
   def reversed : this.type
 
   /** Hardware logical OR of all bits
-    * 
+    *
     * Equivalent to `this.asBits =/= 0`.
     */
   def orR: Bool = {
@@ -69,9 +69,9 @@ abstract class BitVector extends BaseType with Widthable {
   }
 
   /** Hardware logical AND of all bits
-    * 
+    *
     * Equivalent to `this.asBits === ((BigInt(1) << getWidth) - 1)`.
-    */  
+    */
   def andR: Bool = {
     if(GlobalData.get.config.mode == VHDL) {
       this.asBits === ((BigInt(1) << getWidth) - 1)
@@ -79,11 +79,11 @@ abstract class BitVector extends BaseType with Widthable {
       wrapUnaryWithBool(new Operator.BitVector.andR)
     }
   }
- 
-  /** Hardware logical XOR of all bits    
-    * 
+
+  /** Hardware logical XOR of all bits
+    *
     * Equivalent to `this.asBools.reduce(_ ^ _)`.
-    */   
+    */
   def xorR: Bool = {
     if(GlobalData.get.config.mode == VHDL) {
       this.asBools.reduce(_ ^ _)
@@ -94,7 +94,7 @@ abstract class BitVector extends BaseType with Widthable {
 
   /** Hardware logical NOR of all bits */
   def norR : Bool = !orR
-  
+
   /** Hardware logical NAND of all bits */
   def nandR : Bool = !andR
 
@@ -199,6 +199,28 @@ abstract class BitVector extends BaseType with Widthable {
     */
   def resize(width: Int): BitVector
   def resize(width: BitCount): BitVector
+
+  private[core] override def calcNodes: Iterator[WidthProvider] = {
+    if (isFixedWidth) Iterator.empty
+    else {
+      val inputs = ArrayBuffer[WidthProvider]()
+      foreachStatements {
+        case assignment: AssignmentStatement => assignment.target match {
+          case target: BitVector => assignment.source match {
+            case source: WidthProvider => inputs += source
+            case _ =>
+          }
+          case target: BitAssignmentFloating => inputs += target.bitId
+          case target: RangedAssignmentFloating => inputs += target.offset
+          case _: BitAssignmentFixed | _: RangedAssignmentFixed =>
+          case target: BitVectorAssignmentExpression =>
+            throw new NotImplementedError(s"calcNodes missing for ${target.getClass.getName} at ${target.getScalaLocationLong}")
+          case _ =>
+        }
+      }
+      inputs.iterator
+    }
+  }
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
@@ -355,7 +377,7 @@ abstract class BitVector extends BaseType with Widthable {
   def subdivideIn(sliceCount: SlicesCount): Vec[T] = subdivideIn(sliceCount, true)
 
   /** Return this [[BitVector]] splitted in a `Vec[BitVector]` of strictly `sliceWidth` bits
-    * 
+    *
     * @see `subdivideIn(sliceWidth: BitCount, strict: Boolean)`
     */
   def subdivideIn(sliceWidth: BitCount): Vec[T] = subdivideIn(sliceWidth, true)
@@ -507,7 +529,7 @@ abstract class BitVector extends BaseType with Widthable {
 
   /** Hardware assignment of all bits to `True` */
   override def setAll(): this.type
-  
+
   /** Hardware assignment of all bits to `False` */
   override def clearAll(): this.type = {
     this := this.getZeroUnconstrained
