@@ -35,6 +35,7 @@ abstract class AnalogDriverBitVector extends AnalogDriver with Widthable {
 
   override type T = Expression with WidthProvider
 
+  override private[core] def calcNodes: Iterator[WidthProvider] = Iterator(data)
   override private[core] def calcWidth = data.getWidth
 }
 

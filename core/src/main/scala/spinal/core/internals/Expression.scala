@@ -189,6 +189,7 @@ abstract class UnaryOperator extends Operator {
 
 abstract class UnaryOperatorWidthableInputs extends UnaryOperator with Widthable {
   override type T = Expression with WidthProvider
+  override def calcNodes: Iterator[WidthProvider] = Iterator(source)
 }
 
 
@@ -268,6 +269,20 @@ abstract class BinaryOperatorWidthableInputs extends BinaryOperator {
         PendingError(s"OUT OF RANGE CONSTANT. Operator ${this.toStringMultiLine} is checking a value against a out of range constant\n${this.getScalaLocationLong}")
       }
     }
+  }
+}
+
+abstract class BinaryOperatorWidthable extends BinaryOperatorWidthableInputs with Widthable {
+  override def calcNodes: Iterator[WidthProvider] = Iterator(left, right)
+}
+
+abstract class BinaryOperatorWidthableAutoResize extends BinaryOperatorWidthable {
+  override def calcNodes: Iterator[WidthProvider] = {
+    val leftResizable = InferWidth.canBeResized(left)
+    val rightResizable = InferWidth.canBeResized(right)
+    if (leftResizable != rightResizable) {
+      if (leftResizable) Iterator(right) else Iterator(left)
+    } else Iterator(left, right)
   }
 }
 
@@ -372,6 +387,7 @@ object Operator {
 
     abstract class PastBitvector(delay : Int) extends Past(delay) with Widthable {
       override type T = Expression with WidthProvider
+      override private[core] def calcNodes: Iterator[WidthProvider] = Iterator(source)
       override private[core] def calcWidth = source.getWidth
     }
 
@@ -478,6 +494,7 @@ object Operator {
     class Repeat(val count : Int) extends UnaryOperator with Widthable {
       override def getTypeObject = TypeBits
       override def opName: String = "Bool #* Int"
+      override def calcNodes: Iterator[WidthProvider] = Iterator.empty
       override def calcWidth: Int = count
     }
   }
@@ -508,7 +525,7 @@ object Operator {
       override def simplifyNode = if(source.getWidth == 0) new BoolLiteral(false) else this
     }
 
-    abstract class And extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class And extends BinaryOperatorWidthableAutoResize {
       def resizeFactory: Resize
       override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
@@ -519,7 +536,7 @@ object Operator {
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Or extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Or extends BinaryOperatorWidthableAutoResize {
       def resizeFactory: Resize
       override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
@@ -530,7 +547,7 @@ object Operator {
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Xor extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Xor extends BinaryOperatorWidthableAutoResize {
       def resizeFactory: Resize
       override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
@@ -542,7 +559,7 @@ object Operator {
     }
 
 
-    abstract class Add extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Add extends BinaryOperatorWidthableAutoResize {
       def resizeFactory: Resize
       override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
@@ -554,7 +571,7 @@ object Operator {
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Sub extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Sub extends BinaryOperatorWidthableAutoResize {
       def resizeFactory: Resize
       override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
@@ -565,19 +582,20 @@ object Operator {
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Mul extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Mul extends BinaryOperatorWidthable {
       def getLiteralFactory: (BigInt, Int) => Expression
       override def calcWidth: Int = left.getWidth + right.getWidth
       override def simplifyNode: Expression = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Div extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Div extends BinaryOperatorWidthable {
+      override def calcNodes: Iterator[WidthProvider] = Iterator(left)
       override def calcWidth: Int = left.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Mod extends BinaryOperatorWidthableInputs with Widthable {
+    abstract class Mod extends BinaryOperatorWidthable {
       override def calcWidth: Int = left.getWidth min right.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
@@ -610,6 +628,7 @@ object Operator {
       if(shift < 0) {
         LocatedPendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at")
       }
+      override def calcNodes: Iterator[WidthProvider] = Iterator(source)
       override def calcWidth: Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
       override def simplifyNode: Expression = {
@@ -621,7 +640,8 @@ object Operator {
       }
     }
 
-    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
+    abstract class ShiftRightByUInt extends BinaryOperatorWidthable with ShiftOperator {
+      override def calcNodes: Iterator[WidthProvider] = Iterator(left)
       override def calcWidth: Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
@@ -632,6 +652,7 @@ object Operator {
         LocatedPendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at")
       }
 
+      override def calcNodes: Iterator[WidthProvider] = Iterator(source)
       override def calcWidth: Int = source.getWidth + shift
       def getLiteralFactory: (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {
@@ -647,7 +668,7 @@ object Operator {
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
+    abstract class ShiftLeftByUInt extends BinaryOperatorWidthable with ShiftOperator {
       override def calcWidth: Int = left.getWidth + (1 << right.getWidth.min(30)) - 1
       def getLiteralFactory: (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {
@@ -665,18 +686,21 @@ object Operator {
 
     abstract class ShiftRightByIntFixedWidth(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       assert(shift >= 0)
+      override def calcNodes: Iterator[WidthProvider] = Iterator(source)
       override def calcWidth: Int = source.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftLeftByIntFixedWidth(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       assert(shift >= 0)
+      override def calcNodes: Iterator[WidthProvider] = Iterator(source)
       override def calcWidth: Int = source.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
 
     }
 
-    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
+    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthable with ShiftOperator {
+      override def calcNodes: Iterator[WidthProvider] = Iterator(left)
       override def calcWidth: Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
@@ -695,7 +719,7 @@ object Operator {
     */
   object Bits {
 
-    class Cat extends BinaryOperatorWidthableInputs with Widthable {
+    class Cat extends BinaryOperatorWidthable {
       override def getTypeObject = TypeBits
       override def opName: String = s"Bits ## Bits"
       override def calcWidth: Int = left.getWidth + right.getWidth
@@ -1202,6 +1226,7 @@ abstract class Cast extends Modifier {
 /** BitVector -> BitVector */
 abstract class CastBitVectorToBitVector extends Cast with Widthable {
   override type T <: Expression with WidthProvider
+  override private[core] def calcNodes: Iterator[WidthProvider] = Iterator(input)
   override private[core] def calcWidth: Int = input.getWidth
 
   override def toString = s"($opName of $getWidth bits)"
@@ -1247,6 +1272,7 @@ class CastUIntToSInt extends CastBitVectorToBitVector {
 class CastBoolToBits extends Cast with Widthable {
   override def getTypeObject  = TypeBits
   override def opName: String = "Bits -> Bits"
+  override private[core] def calcNodes: Iterator[WidthProvider] = Iterator.empty
   override private[core] def calcWidth: Int = 1
 }
 
@@ -1254,6 +1280,7 @@ class CastBoolToBits extends Cast with Widthable {
 class CastEnumToBits extends Cast with Widthable {
   override type T <: Expression with EnumEncoded
   override def opName: String = "Enum -> Bits"
+  override private[core] def calcNodes: Iterator[WidthProvider] = Iterator.empty
   override private[core] def calcWidth: Int = input.getEncoding.getWidth(input.getDefinition)
   override def getTypeObject: Any = TypeBits
 }
@@ -1319,6 +1346,7 @@ abstract class Multiplexer extends Modifier {
   */
 abstract class MultiplexerWidthable extends Multiplexer with Widthable {
   override type T = Expression with WidthProvider
+  override def calcNodes: Iterator[WidthProvider] = inputs.iterator
   override def calcWidth: Int = InferWidth.notResizableElseMax(this)
 
   override def toString = super.toString + s"[$getWidth bits]"
@@ -1434,6 +1462,7 @@ abstract class BinaryMultiplexer extends Modifier {
   */
 abstract class BinaryMultiplexerWidthable extends BinaryMultiplexer with Widthable {
   override type T = Expression with WidthProvider
+  override def calcNodes: Iterator[WidthProvider] = Iterator(whenTrue, whenFalse)
   override def calcWidth: Int = InferWidth.notResizableElseMax(this)
   override def toString = s"(${super.toString })[$getWidth bits]"
 }

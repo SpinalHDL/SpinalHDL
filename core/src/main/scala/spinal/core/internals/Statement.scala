@@ -193,6 +193,11 @@ object Statement{
     case _ => false
   })
 
+  def isFullToFullLit(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
+    case AssignmentStatement(a: DeclarationStatement, b: Literal) => true
+    case _ => false
+  })
+
   def isFullToFullStatementOrLit(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
     case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
     case AssignmentStatement(a: DeclarationStatement, b: Literal) => true

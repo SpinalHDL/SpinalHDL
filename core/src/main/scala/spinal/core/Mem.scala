@@ -303,10 +303,10 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   }
 
   def formalContains(word : T): Bool ={
-    (0 until wordCount).map(apply(_) === word).reduce(_ || _)
+    (0 until wordCount).map(apply(_) === word).reduceBalanced(_ || _)
   }
   def formalContains(cond : T => Bool): Bool ={
-    (0 until wordCount).map(i => cond(apply(i))).reduce(_ || _)
+    (0 until wordCount).map(i => cond(apply(i))).reduceBalanced(_ || _)
   }
 
   val addressType = HardType(UInt(addressWidth bit))

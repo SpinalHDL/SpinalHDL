@@ -82,13 +82,9 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
   }
 
   override def asBits: Bits = {
-    var ret: Bits = null
-    for ((eName, e) <- elements) {
-      if (ret == null.asInstanceOf[Object]) ret = e.asBits
-      else ret = e.asBits ## ret
-    }
-    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
-    ret
+    val values = elements.map(_._2.asBits)
+    if (values.isEmpty) Bits(0 bits)
+    else values.reduceBalanced((a, b) => b ## a)
   }
 
   override def getBitsWidth: Int = {
@@ -169,14 +165,14 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
 
   private[core] def isEqualTo(that: Any): Bool = {
     that match {
-      case that: SpinalStruct => zippedMap(that, _ === _).reduce(_ && _)
+      case that: SpinalStruct => zippedMap(that, _ === _).reduceBalanced(_ && _)
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
   private[core] def isNotEqualTo(that: Any): Bool = {
     that match {
-      case that: SpinalStruct => zippedMap(that, _ =/= _).reduce(_ || _)
+      case that: SpinalStruct => zippedMap(that, _ =/= _).reduceBalanced(_ || _)
       case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
   }
