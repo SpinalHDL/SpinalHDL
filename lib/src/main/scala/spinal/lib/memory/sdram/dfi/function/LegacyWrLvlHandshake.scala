@@ -44,9 +44,16 @@ case class LegacyWrLvlHandshake(dfiConfig: DfiConfig) extends Component {
 
   val respLevel = io.wrlvlResp.orR
   val respDone = busy && respLevel && !respPrev
-
-  io.wrLvlEn := busy && !error
-  io.wrLvlBusy := busy
+  // Combinational trigger feed-through: the pause (io.wrLvlBusy -> MakeTask spawn gate) and
+  // the level (io.wrLvlEn) must be effective in the TRIGGER CYCLE itself. MakeTask's output
+  // is registered one cycle downstream (Control's tasksInit = io.input.tasks.init()); a task
+  // emitted in the trigger cycle would otherwise be latched and hit the DFI bus one cycle
+  // later, exactly when the level rises — a command inside the leveling window (protocol
+  // violation, caught by the agent's window ban). Registered busy alone rises one cycle too
+  // late to cover that stage; OR-ing the trigger closes the hole without changing the
+  // busy/error/timer state dynamics (busy still latches next cycle, timer still loads tResp).
+  io.wrLvlEn := (io.trigger.valid || busy) && !error
+  io.wrLvlBusy := io.trigger.valid || busy
   io.wrLvlError := error
   io.done := False
 
