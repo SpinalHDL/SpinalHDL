@@ -20,7 +20,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
 
   def AUTO_PRECHARGE_BIT = 10 // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT = 10 // Precharge all banks
-  def COULMNRang = 0 until (dfiConfig.sdram.columnWidth)
+  def COLUMNRange = 0 until (dfiConfig.sdram.columnWidth)
   def BANK: Bits = io.task.address.bank.asBits
   def ROW: Bits = io.task.address.row.asBits
   def COLUMN: Bits = io.task.address.column.asBits
@@ -50,7 +50,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
     cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(WRITE)
     addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
     addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(COULMNRang) := COLUMN
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
     addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
   }
   when(read) {
@@ -58,7 +58,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
     cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(READ)
     addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
     addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(COULMNRang) := COLUMN
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
     addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
   }
   when(precharge) {

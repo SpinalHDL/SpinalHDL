@@ -17,6 +17,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val csCount = busConfig.chipSelectNumber
   val phaseCount = busConfig.frequencyRatio
   val cmdPhase = busConfig.timeConfig.cmdPhase
+  // Phase where the DUT asserts dfi_rddata_en / dfi_wrdata_en for a command issued at cmdPhase,
+  // matching RdDataRxd.nextPhase / WrDataTxd.nextPhase. The latency checks below assert on these
+  // phases rather than on the (fixed) phase of the countdown iteration, which is only correct for
+  // cmdPhase == 0.
+  val rdNextPhase = (cmdPhase + busConfig.timeConfig.tRddataEn) % phaseCount
+  val wrNextPhase = (cmdPhase + busConfig.timeConfig.tPhyWrLat) % phaseCount
   val oneTaskDataNumber = busConfig.transferPerBurst / busConfig.dataRate
   val oneTaskByteNumber = busConfig.bytePerBurst
   val bankWidth = busConfig.sdram.bankWidth
@@ -44,12 +50,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   var columnAddr: Long = 0
   var bank: Long = 0
   var byteAddr: Long = 0
-  var writeVaild: Boolean = false
+  var writeValid: Boolean = false
   var oneTakeDataCounter: Int = 0
   var rdDataByte: Int = 0
   var rdData: BigInt = 0
   var rdByteAddress: Long = 0
-  var rdVaildPhase: Int = 0
+  var rdValidPhase: Int = 0
 
   def this(bus: Dfi, clockDomain: ClockDomain) {
     this(bus.control, bus.write, bus.read, clockDomain);
@@ -59,23 +65,23 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
   def getByte(address: Long) = memory.read(address)
 
+  /** Extract the partIndex-th field of bitNumber bits from bigInt and return its bits as a Boolean array.
+    * Replacement for the previous string-grouping version, which asserted isPow2(bitLength) (crashing on
+    * values such as 0b101) and hard-coded a 2-bit return (silently dropping chips beyond the first two
+    * when chipSelectNumber > 2).
+    */
   def selectBit(bigInt: BigInt, partIndex: Int, bitNumber: Int) = {
-    assert(isPow2(bigInt.bitLength))
-    assert(isPow2(bitNumber))
-    val bigIntStr = bigInt.toString(2)
-    val parts = bigIntStr.grouped(bitNumber).toList.reverse
-    assert(partIndex >= 0 && partIndex < parts.size)
-    val SelectedBit = BigInt(parts(partIndex), 2)
-    Array[Boolean](SelectedBit.testBit(0), SelectedBit.testBit(1))
+    val group = (bigInt >> (partIndex * bitNumber)) & ((BigInt(1) << bitNumber) - 1)
+    Array.tabulate(bitNumber)(i => group.testBit(i))
   }
 
   def writeDataRxd(wrEn: collection.immutable.IndexedSeq[Boolean], wrData: collection.immutable.IndexedSeq[Long]) = {
     for (phase <- 0 until phaseCount) {
       wrEnQueue.enqueue(wrEn(phase))
       if (wrEnQueue.length == busConfig.timeConfig.tPhyWrData + 1) {
-        writeVaild = wrEnQueue.dequeue()
+        writeValid = wrEnQueue.dequeue()
       }
-      if (writeVaild) {
+      if (writeValid) {
         for (j <- 0.until(busConfig.phyIoWidth / 8).reverse) {
           wrByteQueue.enqueue((wrData(phase) >> j * 8).toByte)
         }
@@ -92,10 +98,13 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         }
       }
       if(wrLatQuenes.nonEmpty) {
+        // tPhyWrLat is expressed in DFI clock cycles: the per-phase iteration below decrements once per
+        // DFI cycle (frequencyRatio iterations per MC cycle), which matches WrDataTxd's
+        // delayCyc = tPhyWrLat / frequencyRatio (MC cycles).
         for(i <- 0 until(wrLatQuenes.length)){
           val wrLat = wrLatQuenes.dequeue()
           if(wrLat == 0){
-            assert(wrEn(phase), "The parameter tPhyWrLat is not satisfied ")
+            assert(wrEn(wrNextPhase), "The parameter tPhyWrLat is not satisfied ")
           }else{
             wrLatQuenes.enqueue(wrLat - 1)
           }
@@ -118,20 +127,21 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
       if (en) {
         rdEnQueue.enqueue((true, phase))
         for ((process, i) <- rProcess.zipWithIndex) {
-          if (i == rdVaildPhase) {
+          if (i == rdValidPhase) {
             process.enqueue { (bigInt: BigInt) =>
               rd.rd(i).rddataValid #= true
               rd.rd(i).rddata #= bigInt
             }
           }
         }
-        rdVaildPhase = (rdVaildPhase + 1) % phaseCount
+        rdValidPhase = (rdValidPhase + 1) % phaseCount
       }
       if(rdLatQuenes.nonEmpty) {
+        // tRddataEn is expressed in DFI clock cycles; see the same convention in writeDataRxd.
         for(i <- 0 until(rdLatQuenes.length)){
           val rdLat = rdLatQuenes.dequeue()
           if(rdLat == 0){
-            assert(en, "The parameter tRddataEn is not satisfied ")
+            assert(rdEn(rdNextPhase), "The parameter tRddataEn is not satisfied ")
           }else{
             rdLatQuenes.enqueue(rdLat - 1)
           }

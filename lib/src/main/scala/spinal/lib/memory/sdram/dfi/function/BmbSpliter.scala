@@ -151,7 +151,7 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
         }
 
         drop setWhen (!context.write && (io.input.rsp.first && beatCounter(
-          context.paddings.bitsRange
+          context.paddings.range
         ) < context.paddings || transferCounter > context.transfers))
 
         io.input.rsp.last setWhen (transferCounter === context.transfers & (transferCounter =/= 0))
@@ -201,7 +201,7 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     length := io.input.cmd.fire ? io.input.cmd.length | lengthReg
     address := io.input.cmd.fire ? io.input.cmd.address | addressReg
 
-    val headLenghtMax = lengthMax - 1 - address(splitRange)
+    val headLengthMax = lengthMax - 1 - address(splitRange)
     val bodyLength = lengthMax - 1
     val lastAddress = address(splitRange) + (U"0" @@ length)
     val tailLength = lastAddress(splitRange)
@@ -231,7 +231,7 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     io.output.cmd.source := 0
     io.output.cmd.opcode := io.input.cmd.opcode & (~((rdBeatCounter === beatsInSplit - 1) & usedSplit).asBits)
     io.output.cmd.length := (firstSplit ## lastSplit) mux (
-      B"10" -> headLenghtMax,
+      B"10" -> headLengthMax,
       B"00" -> U(lengthMax - 1),
       B"01" -> tailLength,
       B"11" -> length.resize(op.lengthWidth)
