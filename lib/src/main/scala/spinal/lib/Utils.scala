@@ -978,23 +978,8 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     reduceBalancedTree(op, (s,l) => s)
   }
   def reduceBalancedTree(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
-    def stage(elements: ArrayBuffer[T], level: Int): T = {
-      if (elements.length == 1) return elements.head
-      val stageLogic = new ArrayBuffer[T]()
-      val logicCount = (elements.length + 1) / 2
-
-      for (i <- 0 until logicCount) {
-        if (i * 2 + 1 < elements.length)
-          stageLogic += levelBridge(op(elements(i * 2), elements(i * 2 + 1)), level)
-        else
-          stageLogic += levelBridge(elements(i * 2), level)
-      }
-      stage(stageLogic, level + 1)
-
-    }
-    val array = ArrayBuffer[T]() ++ pimped
-    assert(array.nonEmpty, "can't use reduceBalancedTree on an empty collection")
-    stage(array, 0)
+    assert(pimped.nonEmpty, "can't use reduceBalancedTree on an empty collection")
+    pimped.reduceBalanced(op, levelBridge)
   }
   def distinctLinked : mutable.LinkedHashSet[T] = {
     mutable.LinkedHashSet[T]() ++ this.pimped

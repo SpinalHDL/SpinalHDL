@@ -67,7 +67,7 @@ object Gray {
 
 
 /**
- * Check if a number is a power of 2 
+ * Check if a number is a power of 2
  */
 object isPow2 {
   def apply(that: BigInt): Boolean = {
@@ -80,7 +80,7 @@ object isPow2 {
 
 
 /**
- * Round up a BigInt 
+ * Round up a BigInt
  */
 object roundUp {
   def apply(that: BigInt, by: BigInt): BigInt = (that / by) * by + (if(that % by != 0) by else 0)
@@ -89,9 +89,9 @@ object roundUp {
 
 
 /**
- * Return a new data with the same data structure as the given parameter (including bit width) 
+ * Return a new data with the same data structure as the given parameter (including bit width)
  */
-object cloneOf {  
+object cloneOf {
   def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
   def apply[T <: Data](that: HardType[T]): T = that()
 }
@@ -183,7 +183,7 @@ object globalCache{
 
 
 /**
- * Concatenate a list of data 
+ * Concatenate a list of data
  */
 object Cat {
   def apply(data: Data*): Bits = apply(data.toList.reverse)
@@ -191,13 +191,13 @@ object Cat {
 
   def apply[T <: Data](data: Iterable[T]) = {
     if (data.isEmpty) B(0, 0 bit)
-    else data.map(_.asBits).reduce((a,b) => b ## a)
+    else data.map(_.asBits).reduceBalanced((a,b) => b ## a)
   }
 }
 
 
 /** SpinalHDL standalone mux with `Bool` selector
-  * 
+  *
   * Types like `Enum`/`Bool`/`Bits`/`UInt`/`SInt` can also be used as selector with the method
   * `mux()` of their parent `BaseType`.
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#mux `Mux` documentation]]
@@ -245,15 +245,15 @@ object SpinalMap {
     switch(addr){
       for ((cond, value) <- mappings) {
         cond match {
-          case product: Product => 
+          case product: Product =>
             is.list(product.productIterator) {
               result := value
-            }        
-          case `default` => 
+            }
+          case `default` =>
             default {
               result := value
             }
-          case _ => 
+          case _ =>
             is(cond) {
               result := value
             }
@@ -535,7 +535,7 @@ object ifGen {
 
 
 object ArrayManager{
-  
+
   def setAllocate[T](array: Array[T], idx: Int, value: T, initialSize: Int = 4)(implicit m: ClassTag[T]): Array[T] = {
     var ret = array
     if(ret == null) ret = new Array[T](initialSize)
@@ -562,7 +562,7 @@ object AnnotationUtils{
 
 
 /** Create a new signal, assigned by the given parameter.
-  * 
+  *
   * Useful to provide a "copy" of something that you can then modify with more conditional assignments.
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/assignments.html#combinit `CombInit` Documentation]]
   */
@@ -631,7 +631,7 @@ object ContextSwapper{
       if (oldLast != null) oldLast.nextScopeStatement = null.asInstanceOf[Statement]
       topBody.last = if(oldLast == null) addedLast else oldLast
     }
-    
+
     ret // return the value returned by that
   }
 }

@@ -124,6 +124,42 @@ class SpinalSimCatTester extends SpinalSimFunSuite {
     }
   }
 
+  test("balanced_collection_order") {
+    SimConfig.doSim(new Component {
+      val values = in Vec (Bits(4 bits), 5)
+      val vecBits = out(values.asBits)
+      val reversedBits = out(values.asReversedBits)
+      val iterableBits = out(Cat(values.toSeq))
+      val varargBits = out(Cat(values(0), values(1), values(2), values(3), values(4)))
+      val a = in Bits (2 bits)
+      val b = in Bits (3 bits)
+      val c = in Bits (1 bits)
+      val mixedIterable = out(Cat(Seq(a, b, c)))
+      val mixedVarargs = out(Cat(a, b, c))
+    }) { dut =>
+      dut.clockDomain.forkStimulus(10)
+      for (seed <- 0 until 20) {
+        val values = (0 until 5).map(i => (seed + 3 * i) & 15)
+        dut.values.zip(values).foreach { case (port, value) => port #= value }
+        val a = seed & 3
+        val b = (seed + 1) & 7
+        val c = seed & 1
+        dut.a #= a
+        dut.b #= b
+        dut.c #= c
+        dut.clockDomain.waitSampling()
+        val normal = values.indices.map(i => BigInt(values(i)) << (4 * i)).sum
+        val reversed = values.indices.map(i => BigInt(values(i)) << (4 * (4 - i))).sum
+        assert(dut.vecBits.toBigInt == normal)
+        assert(dut.iterableBits.toBigInt == normal)
+        assert(dut.reversedBits.toBigInt == reversed)
+        assert(dut.varargBits.toBigInt == reversed)
+        assert(dut.mixedIterable.toBigInt == ((BigInt(c) << 5) | (BigInt(b) << 2) | BigInt(a)))
+        assert(dut.mixedVarargs.toBigInt == ((BigInt(a) << 4) | (BigInt(b) << 1) | BigInt(c)))
+      }
+    }
+  }
+
   test("mixed_width") {
     // Tests that concatenating signals of different widths works
     SimConfig.doSim(new Component {

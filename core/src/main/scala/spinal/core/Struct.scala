@@ -82,13 +82,9 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
   }
 
   override def asBits: Bits = {
-    var ret: Bits = null
-    for ((eName, e) <- elements) {
-      if (ret == null.asInstanceOf[Object]) ret = e.asBits
-      else ret = e.asBits ## ret
-    }
-    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
-    ret
+    val values = elements.map(_._2.asBits)
+    if (values.isEmpty) Bits(0 bits)
+    else values.reduceBalanced((a, b) => b ## a)
   }
 
   override def getBitsWidth: Int = {
