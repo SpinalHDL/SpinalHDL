@@ -593,7 +593,11 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               s"$name: dfi_odt violated the data-window ODT relation on $odtMismatchCycles cycle(s)"
             )
             // ODT must actually engage when data traffic occurred (guards against a stuck-0 bus).
-            if (rspReadBeats > 0 || cmdWriteCount > 0) {
+            // Injected-timeout scenarios (ctrlMsgAckDelayCycles > 0) expect a PERMANENT HALT: the
+            // controller dies mid-traffic, so a WR command may be issued whose data window never
+            // materializes (the halt cuts the data path) — ODT mirrors the real data window and
+            // legitimately stays 0. The mismatch guard above still applies.
+            if (ctrlMsgAckDelayCycles == 0 && (rspReadBeats > 0 || cmdWriteCount > 0)) {
               assert(
                 odtAssertedCycles > 0,
                 s"$name: dfi_odt never asserted although traffic occurred (possible stuck-0 ODT)"
