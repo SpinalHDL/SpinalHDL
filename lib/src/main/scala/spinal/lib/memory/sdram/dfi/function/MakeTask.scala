@@ -66,10 +66,10 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val addrMapping = new Area {
       val rbcAddress = address.getRBCAddress(input.address)
       val addrMapMethod = AddrMapMethod(dfiConfig, addrMap)
-      val TaskAddress = addrMapMethod.addressMap(rbcAddress)
-      address.byte.assignFromBits(address.getButeAddress(input.address).asBits)
+      val taskAddress = addrMapMethod.addressMap(rbcAddress)
+      address.byte.assignFromBits(address.getByteAddress(input.address).asBits)
       address.cs.assignFromBits(address.getCsAddress(input.address).asBits)
-      address.assignUnassignedByName(TaskAddress.address)
+      address.assignUnassignedByName(taskAddress.address)
     }
     val status = Status()
     status.allowPrecharge := True
@@ -132,7 +132,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
     val blockedByWriteToken = inputWrite && allowWrite && !io.writeDataToken.valid // For debug visualisation
 
-    val fire = False // It is the last cycle for this station
     val last = offset === offsetLast
     io.output.address.column := address.column | (offset << columnBurstShift).resized
     io.output.address.assignUnassignedByName(address)
@@ -150,7 +149,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       offset := offset + 1
       when(last) {
         valid := False
-        fire := True
       }
     }
     readyForRefresh clearWhen (valid)
@@ -166,6 +164,13 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     taskConstructor.input.ready := !station.valid
     val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.input.length
+    // BmbAlignedSpliter guarantees sub-commands never cross a bytePerTaskMax-aligned boundary, so
+    // offset + length fits the station range. Make that invariant explicit: a violation here would
+    // otherwise wrap offsetLast and deadlock the station (last never reached).
+    assert(
+      offsetLast <= io.cmd.stationLengthMax - 1,
+      "SDRAM task bursts cross the station boundary: offset + length must fit in stationLengthWidth bits"
+    )
     val canSpawn = !station.valid
     // Insert taskConstructor into one free station
     when(taskConstructor.input.fire && canSpawn) {

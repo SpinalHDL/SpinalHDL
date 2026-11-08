@@ -116,7 +116,7 @@ case class IDFI(config: DfiConfig) extends Bundle with IMasterSlave {
   val crc = config.useCrcMode generate Vec(master(Stream(Event)), frequencyRatio)
   val rdLvlCs = config.useRdlvlReq & config.useRdlvlEn generate Vec(slave(Stream(DfiRdLvlCs(config))), dataSlice)
   val rdLvl = config.useRdlvlResp & config.useRdlvlEn generate Vec(master(Stream(DfiRdLvl(config))), dataSlice)
-  val rdGataCs =
+  val rdGateCs =
     config.useRdlvlGateReq & config.useRdlvlGateEn generate Vec(slave(Stream(DfiRdGateCs(config))), dataSlice)
   val rdGate = config.useRdlvlResp & config.useRdlvlGateEn generate Vec(master(Stream(DfiRdGate(config))), dataSlice)
   val wrLvlCs = config.useWrlvlReq & config.useWrlvlEn generate Vec(slave(Stream(DfiWrLvlCs(config))), dataSlice)
