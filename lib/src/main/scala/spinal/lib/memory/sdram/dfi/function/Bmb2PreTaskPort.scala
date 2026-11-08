@@ -10,10 +10,18 @@ case class BmbToPreTaskPort(ip: BmbParameter, taskConfig: TaskConfig, dfiConfig:
     val inputBurstLast = in Bool ()
     val output = master(PreTaskPort(taskConfig, dfiConfig))
   }
-  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(dfiConfig.beatCount)
+  // Response-count estimate of the current command, computed from the input cmd directly
+  // (io.output.cmd is only valid on the last input beat; its payload is combinatorially driven from
+  // io.input.cmd, which is stable during a burst).
+  // Writes produce a single response beat; a read of (length+1) bursts produces (length+1)*beatCount beats.
+  val cmdToRspCount = io.input.cmd.isWrite ? U(1) |
+    ((io.input.cmd.length >> log2Up(dfiConfig.bytePerBurst)) +^ 1) << log2Up(dfiConfig.beatCount)
   val rspPendingCounter = Reg(UInt(log2Up(taskConfig.taskParameter.rspBufferSize + 1) bits)) init (0)
-  val toManyRsp =
-    (U"0" @@ rspPendingCounter) + cmdToRspCount > taskConfig.taskParameter.rspBufferSize // taskParameter.rspBufferSize - taskParameter.beatPerBurst*dfiConfig.beatCount //Pessimistic
+  // Credit check at commit time only (last beat): refuse to finish a command whose outstanding response
+  // count would overflow the rsp buffer. Gating only on last avoids a premature stall of an already
+  // accepted command near the buffer limit.
+  val toManyRsp = io.input.cmd.last &&
+    ((U"0" @@ rspPendingCounter) + cmdToRspCount > taskConfig.taskParameter.rspBufferSize) //Pessimistic
   rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
   val cmdContext = PackContext()
 
