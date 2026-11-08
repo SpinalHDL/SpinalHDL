@@ -86,7 +86,7 @@ abstract class BitVector extends BaseType with Widthable {
     */
   def xorR: Bool = {
     if(GlobalData.get.config.mode == VHDL) {
-      this.asBools.reduce(_ ^ _)
+      this.asBools.reduceBalanced(_ ^ _)
     } else {
       wrapUnaryWithBool(new Operator.BitVector.xorR)
     }

@@ -175,7 +175,7 @@ abstract class MultiData extends Data {
     that match {
       case that: MultiData => {
         val checks = zippedMap(that, _ === _)
-        if(checks.nonEmpty) checks.reduce(_ && _) else True
+        if(checks.nonEmpty) checks.reduceBalanced(_ && _) else True
       }
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
@@ -185,7 +185,7 @@ abstract class MultiData extends Data {
     that match {
       case that: MultiData =>{
         val checks = zippedMap(that, _ =/= _)
-        if(checks.nonEmpty) checks.reduce(_ || _) else False
+        if(checks.nonEmpty) checks.reduceBalanced(_ || _) else False
       }
       case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
@@ -195,7 +195,7 @@ abstract class MultiData extends Data {
     that match {
       case that: MultiData => {
         val checks = zippedMap(that, _ isEqualToSim _)
-        if(checks.nonEmpty) checks.reduce(_ && _) else True
+        if(checks.nonEmpty) checks.reduceBalanced(_ && _) else True
       }
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
