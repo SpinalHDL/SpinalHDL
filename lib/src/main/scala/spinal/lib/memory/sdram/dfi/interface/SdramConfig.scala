@@ -9,8 +9,29 @@ class SdramGeneration(
     val FAW: Boolean,
     val CCD: Int,
     val burstLength: Int,
-    val dataRate: Int
-)
+    val dataRate: Int,
+    // Bank-group aware CAS-to-CAS (tCCD) in nCK, JESD79-4B Table 34.
+    // 0 => collapse to CCD (no bank groups): DDR/DDR2/DDR3 keep exactly the old single-value behavior.
+    val ccdL: Int = 0,
+    val ccdS: Int = 0,
+    // --- Protocol capability flags (ADR-0002) ---------------------------------------------
+    // Consumers gate BEHAVIOR on these flags, never on `generation == SdramGeneration.XXX`
+    // identity. Identity remains the right key only for generation-SPECIFIC PAYLOADS (e.g. the
+    // DDR4 init step table), and that knowledge is centralized in one named home
+    // (SdramInitStep.defaultFor), not scattered across builders.
+    // Modern DFI command bus: ACT_n / BG / CID pins exist alongside RAS_n/CAS_n/WE_n
+    // (DFI 5.2 §4.3, JESD79-4B Table 16). All-or-nothing: the three wires appear together.
+    val hasModernCmdBus: Boolean = false,
+    // DBI (data bus inversion): physical pin-set feature, enabled via mode registers
+    // (JESD79-4B §4.11 MR5 A11/A12).
+    val hasDbi: Boolean = false,
+    // CA parity: the DRAM checks even parity over the CA pins (JESD79-4B §4.17 /
+    // DFI 5.2 §4.12).
+    val hasCaParity: Boolean = false
+) {
+  def tCCD_L = if (ccdL != 0) ccdL else CCD
+  def tCCD_S = if (ccdS != 0) ccdS else CCD
+}
 
 object SdramGeneration {
   val SDR = new SdramGeneration(
@@ -49,6 +70,23 @@ object SdramGeneration {
     burstLength = 8,
     dataRate = 2
   )
+  // DDR4: fixed BL8, 2nCK data rate, bank-group aware timing (tCCD_L=4/tCCD_S=2 nCK,
+  // JESD79-4B Table 34). tRRD/tWTR L/S variants live in SdramTiming (ns-based, like all
+  // other cross-bank timings in this codebase).
+  val DDR4 = new SdramGeneration(
+    RESETn = true,
+    ODT = true,
+    DQS = true,
+    FAW = true,
+    CCD = 4,
+    burstLength = 8,
+    dataRate = 2,
+    ccdL = 4,
+    ccdS = 2,
+    hasModernCmdBus = true,
+    hasDbi = true,
+    hasCaParity = true
+  )
 }
 
 case class SdramConfig(
@@ -73,25 +111,55 @@ case class SdramConfig(
   def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerWord)
   def bytePerWord = dataWidth / 8
   def columnSize = 1 << columnWidth
-  def ddrStartdelay = 600000 / (1000 / ddrMHZ) // 600uS
+  def ddrStartDelay = 600000 / (1000 / ddrMHZ) // 600uS
 
-  def tREF = (sdramtime.REF * ddrMHZ) / rowSize
+  def tREF = {
+    val base = if (sdramtime.REF_NS != 0) timeCycle(sdramtime.REF_NS, cycleTime_ns)
+    else (sdramtime.REF * ddrMHZ) / rowSize
+    // Rate multiplier shortens tREFI (2x => /2, 4x => /4), generation-agnostic.
+    // Integer division is exact for the intended rates (1/2/4).
+    base / sdramtime.REF_RATE
+  }
   def rowSize = 1 << rowWidth
   def tRCD = timeCycle(sdramtime.RCD, cycleTime_ns)
   def tRP = timeCycle(sdramtime.RP, cycleTime_ns)
   def tRFC = timeCycle(sdramtime.RFC, cycleTime_ns)
+  // All timing values below are in MC clock cycles:
+  // - timeCycle() converts ns -> MC cycles (cycleTime_ns = 1000/ddrMHZ ns)
+  // - ddrWrLat/ddrRdLat/tWR are already expressed in MC clock cycles
   def tWTR =
     math.max(timeCycle(sdramtime.WTR, cycleTime_ns), ddrWrLat + generation.burstLength / generation.dataRate + tWR)
 
+  /** tWTR_S: WRITE to READ across different bank groups (DDR4 only).
+    * Falls back to tWTR when WTR_S is unset. Floor is the write burst itself, NOT tWTR:
+    * the S variant must be allowed to be shorter than the same-group (L) variant.
+    */
+  def tWTR_S =
+    if (sdramtime.WTR_S == 0) tWTR
+    else math.max(timeCycle(sdramtime.WTR_S, cycleTime_ns), generation.burstLength / generation.dataRate)
+
   def tRTW = ddrRdLat + generation.burstLength / generation.dataRate + tWR
 
-  def tWR = 5 + 1
+  /** Write recovery time (tWR) in MC clock cycles.
+    * Derived from the user-supplied sdramtime.WTP (ns) when non-zero; otherwise
+    * falls back to the JESD79-4B AC-table minimum of 15 ns (uniform across DDR4
+    * speeds; conservative for older generations, whose tWR may be smaller).
+    * (Was a hardcoded 6-cycle approximation that undershot the spec at >=DDR4-2400.)
+    */
+  def tWR = if (sdramtime.WTP != 0) timeCycle(sdramtime.WTP, cycleTime_ns) else timeCycle(15, cycleTime_ns)
 
   def tRAS = timeCycle(sdramtime.RAS, cycleTime_ns)
 
   def tRTP = math.max(timeCycle(sdramtime.RTP, cycleTime_ns), generation.burstLength / generation.dataRate)
 
   def tRRD = math.max(timeCycle(sdramtime.RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
+
+  /** tRRD_S: ACT to ACT across different bank groups (DDR4 only).
+    * Falls back to tRRD when RRD_S is unset; floor is the burst, not tRRD (S may be shorter).
+    */
+  def tRRD_S =
+    if (sdramtime.RRD_S == 0) tRRD
+    else math.max(timeCycle(sdramtime.RRD_S, cycleTime_ns), generation.burstLength / generation.dataRate)
 
   def tFAW = timeCycle(sdramtime.FAW, cycleTime_ns)
 
@@ -114,5 +182,20 @@ case class SdramTiming(
     RTP: Int, // ns// READ to PRE
     RRD: Int, // ns// ACT to ACT cross bank
     REF: Int, // us // Refresh Cycle Time (single row)
-    FAW: Int
+    FAW: Int,
+    // DDR4 bank-group variants (ns). 0 => fall back to the shared value, so pre-DDR4
+    // SdramTiming literals keep compiling and behave exactly as before.
+    WTR_S: Int = 0, // tWTR_S: WRITE to READ, cross bank group
+    RRD_S: Int = 0, // tRRD_S: ACT to ACT, cross bank group
+    // Absolute refresh interval tREFI in ns (e.g. 7800). 0 => legacy per-row
+    // derivation (REF us / rows), preserving pre-DDR4 behavior bit-for-bit.
+    // Generation-agnostic: any SDRAM whose datasheet gives an absolute tREFI can use it.
+    REF_NS: Int = 0,
+    // Refresh rate multiplier, applied to whatever tREFI the base derivation produced.
+    // Generation-agnostic scheduler knob: 1 = base rate, 2 = half tREFI, 4 = quarter.
+    // (DDR4 gives it protocol meaning via MR4 temperature-controlled refresh, JESD79-4B
+    // Table 24, where RFC must carry the mode's tRFC(min): 8Gb 1x=350, 2x=260, 4x=160.
+    // Older generations can use the same knob for conservative margining.)
+    // Default 1 keeps every pre-existing timing literal unchanged.
+    REF_RATE: Int = 1
 ) //ns // Four ACTIVATE windows
