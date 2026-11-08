@@ -1,9 +1,11 @@
-# DFI DDR3 end-to-end co-simulation (SpinalHDL encoder ⇄ Micron ddr3.v)
+# DFI DDR3 / DDR2 end-to-end co-simulation (SpinalHDL encoder ⇄ Micron models)
 
 Real-time co-simulation of the SpinalHDL **DFI command encoder**
 (`DfiLegacySimPhy`) against the **original, unmodified Micron `ddr3.v`
 behavioral model**, driven as a live `VerilogBlackBox`-style instance inside a
-single [Icarus Verilog](https://steveicarus.github.io/iverilog/) bench.
+single [Icarus Verilog](https://steveicarus.github.io/iverilog/) bench. A
+second bench runs the same encoder against the original **`ddr2.v`** model
+(see the DDR2 section below).
 
 This proves the DFI → DDR3 command/data path end to end: reset, CKE/power-up,
 ZQ calibration, MRS init, write (DQ/DQS burst), read (DQ capture) and a
@@ -83,6 +85,39 @@ bundles **no proprietary bytes** and exercises the model's real timing checker.
 - **Init timing.** Gaps sized to the live checks: `tXPR` (170 ns) after CKE
   active, `tZQinit` (~1024 tCK) after ZQCL, `tDLLK` (512 tCK) after the MR0 DLL
   reset, `tMRD`/`tMOD` between MRS. `tCK = 3.0 ns` sits in the SG25 window.
+
+## DDR2 variant (⇄ Micron ddr2.v)
+
+Same methodology, mirrored files (kept separate because the init sequences,
+MR encodings, and timing constraints differ substantially):
+
+| File | Role |
+|------|------|
+| `Ddr2E2eGen.scala` | codegen — emits `build_ddr2/DfiLegacySimPhy.v` with the DDR2 `SdramConfig` (x16, 13-bit row, BA=3). |
+| `tb/e2e_tb_ddr2.sv` | pin-level TB against the pristine `ddr2.v` (`tester/src/test/python/spinal/SdramXdr/Ddr2ModelTester/`). |
+| `run_ddr2.sh` | `sbt` codegen → `iverilog -g2012` → `vvp`; PASS = TB PASS line **and** zero model `ERROR:` lines. |
+
+```bash
+bash tester/src/test/scala/spinal/lib/memory/sdram/dfi/e2e/run_ddr2.sh
+```
+
+DDR2 specifics (vs DDR3):
+
+- **`tCK = 5.0 ns`** — the model's default speed bin (no `` `define ``) is
+  `sg5E` with `TCK_MIN = 5000 ps`.
+- **Width defaults to x16**: `dq[15:0]`, `dqs[1:0]`, `dm_rdqs[1:0]` (tie DM to 0).
+- **Command encoding** `{ras_n, cas_n, we_n}`: ACT=`{0,1,1}`, WR=`{1,0,0}`,
+  RD=`{1,0,1}`, PRE=`{0,1,0}`, REF=`{0,0,1}`, MRS=`{0,0,0}`; PRE-ALL via `addr[10]`.
+- **MR values cross-checked against the model's MRS decode-echo log**:
+  MR0 = `0x953` (BL8 seq, CL5, WR5, DLL reset) → `0x853` (normal);
+  MR1 = `0x380` (OCD=111) → `0x000` (final). Manual bit-packing is error-
+  prone — verify each constant against the echo immediately after MRS.
+- **Timing traps**: `tRFC_MIN = 127.5 ns` (space REFs and the following
+  command ≥ 150 ns), and command pins must be released to NOP on the CK
+  **negedge** after decode — changing a pin at the sampling posedge trips
+  the 350 ps `tIS` setup check.
+- Init mirrors the model's own `initialize` task: PRE-ALL, MRS MR3/MR2/MR1/
+  MR0(reset), PRE-ALL, 2× REF, MRS MR0(norm), MR1 OCD 111→000, 250 tCK DLL lock.
 
 ## Licensing
 
