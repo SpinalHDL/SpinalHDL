@@ -17,9 +17,11 @@ case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSla
   val cke = Bits(config.chipSelectNumber * config.frequencyRatio bits)
   val odt = config.useOdt generate Bits(config.chipSelectNumber * config.frequencyRatio bits)
   val resetN = config.useResetN generate Bits(config.chipSelectNumber * config.frequencyRatio bits)
+  // DDR4 CA parity (JESD79-4B §4.17): one even-parity bit per phase, driven with the command
+  val parity = config.useCaParity generate Bits(config.frequencyRatio bits)
 
   override def asMaster(): Unit = {
-    out(address, bank, rasN, casN, weN, csN, actN, bg, cid, cke, odt, resetN)
+    out(address, bank, rasN, casN, weN, csN, actN, bg, cid, cke, odt, resetN, parity)
   }
 }
 
@@ -29,6 +31,8 @@ case class DfiWr(config: DfiConfig) extends Bundle {
   val wrdataMask = Bits(config.dataWidth / 8 bits)
   // config.dramDataSlice must >= 8, or else config.dataWidth / 8 / config.dataEnableWidth < 1
   val wrdataCsN = config.useWrdataCsN generate Bits(config.chipSelectNumber bits)
+  // DDR4 DBI (JESD79-4B §4.11), active low: 0 = the byte on the wire is inverted
+  val wrdataDbiN = config.useWrDbi generate Bits(config.dbiWidth bits)
 }
 
 case class DfiWriteInterface(config: DfiConfig) extends Bundle with IMasterSlave {
@@ -60,8 +64,8 @@ case class DfiReadInterface(config: DfiConfig) extends Bundle with IMasterSlave 
 }
 
 case class DfiUpdateInterface(config: DfiConfig) extends Bundle with IMasterSlave {
-  val ctrlupdAck = config.useCtrlupdReq generate Bool()
-  val ctrlupdReq = config.useCtrlupdAck generate Bool()
+  val ctrlupdAck = config.useCtrlupdAck generate Bool()
+  val ctrlupdReq = config.useCtrlupdReq generate Bool()
   val phyupdAck = config.usePhyupdAck generate Bool()
   val phyupdReq = config.usePhyupdReq generate Bool()
   val phyupdType = config.usePhyupdType generate Bits(2 bits)
@@ -124,7 +128,7 @@ case class DfiCATrainingInterface(config: DfiConfig) extends Bundle with IMaster
   }
 }
 
-case class DfiLevelingTraingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+case class DfiLevelingTrainingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val lvlPattern = config.useLvlPattern generate Bits(4 * config.readTrainingPhyIFWidth bits)
   val lvlPeriodic = config.useLvlPeriodic generate Bits(config.levelingPhyIFWidth bits)
   override def asMaster(): Unit = {
@@ -132,7 +136,7 @@ case class DfiLevelingTraingInterface(config: DfiConfig) extends Bundle with IMa
   }
 }
 
-case class DfiPhyRequesetedTrainingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+case class DfiPhyRequestedTrainingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val phylvlReqCsN = config.usePhylvlReqCsN generate Bits(config.rankWidth bits)
   val phylvlAckCsN = config.usePhylvlAckCsN generate Bits(config.chipSelectNumber bits)
 
@@ -155,9 +159,9 @@ case class DfiLowPowerControlInterface(config: DfiConfig) extends Bundle with IM
 
 case class DfiErrorInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val error = config.useError generate Bits(config.errorNumber bits)
-  val error_info = config.useErrorInfo generate Bits(config.errorNumber * 4 bits)
+  val errorInfo = config.useErrorInfo generate Bits(config.errorNumber * 4 bits)
   override def asMaster(): Unit = {
-    in(error, error_info)
+    in(error, errorInfo)
   }
 }
 
@@ -165,13 +169,13 @@ case class Dfi(config: DfiConfig) extends Bundle with IMasterSlave {
   val control = DfiControlInterface(config)
   val write = DfiWriteInterface(config)
   val read = DfiReadInterface(config)
-  val updata = DfiUpdateInterface(config)
+  val update = DfiUpdateInterface(config)
   val status = DfiStatusInterface(config)
   val rdTraining = DfiReadTrainingInterface(config)
   val wrTraining = DfiWriteTrainingInterface(config)
   val caTraining = DfiCATrainingInterface(config)
-  val levelingTraing = DfiLevelingTraingInterface(config)
-  val phyRequesetedTraining = DfiPhyRequesetedTrainingInterface(config)
+  val levelingTraining = DfiLevelingTrainingInterface(config)
+  val phyRequestedTraining = DfiPhyRequestedTrainingInterface(config)
   val lowPowerControl = DfiLowPowerControlInterface(config)
   val error = DfiErrorInterface(config)
   override def asMaster(): Unit = {
@@ -180,12 +184,12 @@ case class Dfi(config: DfiConfig) extends Bundle with IMasterSlave {
       read,
       status,
       write,
-      updata,
+      update,
       rdTraining,
       wrTraining,
       caTraining,
-      levelingTraing,
-      phyRequesetedTraining,
+      levelingTraining,
+      phyRequestedTraining,
       lowPowerControl,
       error
     )
