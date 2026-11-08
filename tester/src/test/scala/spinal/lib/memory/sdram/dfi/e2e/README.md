@@ -101,6 +101,37 @@ MR encodings, and timing constraints differ substantially):
 bash tester/src/test/scala/spinal/lib/memory/sdram/dfi/e2e/run_ddr2.sh
 ```
 
+#### cocotb/Icarus variant (repo-standard test facility)
+
+The same encoder-vs-original-model e2e also runs through the repo's standard
+[cocotb](https://www.cocotb.org)/Icarus infrastructure (no ad-hoc `sbt`
+shell-out; `make SIM=icarus` entry):
+
+| File | Role |
+|------|------|
+| `E2eDdr2Tester/e2e_top_ddr2.v` | structural wrapper: generated encoder ⇄ pristine `ddr2.v`, `dq_obs`/`dq_valid` observation ports. |
+| `E2eDdr2Tester/e2e_ddr2_test.py` | cocotb test: phase-locked CK, init sequence, WR/RD round-trip at 2 columns + location-specificity re-read. |
+| `E2eDdr2Tester/Makefile` | cocotb makefile; auto-runs `sbt` codegen if `build_ddr2/DfiLegacySimPhy.v` is missing. |
+| `E2eDdr2Tester/run.sh` | entry: `make SIM=icarus` + PASS iff `[e2e] PASS` line **and** zero model `ERROR:` lines. |
+
+```bash
+bash tester/src/test/python/spinal/SdramXdr/E2eDdr2Tester/run.sh
+```
+
+Gotchas baked into the test (cost real debugging time — do not "simplify"):
+
+- **Both DQS groups must toggle** (`wb_dqs` is 2 bits; drive `_dup(dqs)`).
+  The model checks each `dqs[i]` bit separately; driving only bit 0 trips
+  `DQS bit 1 latching edge required`.
+- **DQS postamble length matters for tWTR**: 17 toggle edges
+  (T1+5.0..T1+45.0) with `wr_en` released at T1+45.0. Releasing one half-CK
+  earlier makes the model's write-end bookkeeping land too close to the next
+  READ → spurious `tWTR violation during Read`.
+- cocotb 1.8.1 `Timer` unit is `'sec'`, not `'s'` (construction-time raise,
+  cascades into a scheduler crash + vvp segfault).
+- cocotb 1.8.1 forwards `EXTRA_ARGS` to **both** `iverilog` and `vvp`;
+  `vvp` rejects `-g2012`, so keep sources Verilog-2001 clean instead.
+
 DDR2 specifics (vs DDR3):
 
 - **`tCK = 5.0 ns`** — the model's default speed bin (no `` `define ``) is
