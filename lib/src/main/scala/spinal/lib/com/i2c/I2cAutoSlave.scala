@@ -226,6 +226,10 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   val tenBitRw    = RegInit(False)
   val tenBitPrefixOk = RegInit(False)
   val addrByteIdx = Reg(UInt(1 bits)) init(0)  // 0=first addr byte, 1=second
+  // tenBitUpper / addrByteIdx are only written inside the `if (c.support10bit)`
+  // generation branch (and only on 11110-prefix frames); in 7-bit builds they
+  // are never assigned at all. The tag tells SpinalHDL the missing assignments
+  // are deliberate (hold value), not an accidental latch hole.
   tenBitUpper.allowUnsetRegToAvoidLatch
   addrByteIdx.allowUnsetRegToAvoidLatch
 
@@ -282,6 +286,9 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   }
   io.irq := (io.intr.en & intr.fl).orR
 
+  // Sticky error flag: set on a sparse-RAM NACK, cleared on the next START
+  // or STOP. Assigned inside conditional branches only, hence the tag
+  // (deliberate hold-across-other-cycles semantics, not a latch hole).
   val statusErrNack = RegInit(False).allowUnsetRegToAvoidLatch
 
   // Helper: is the current pointer address valid?

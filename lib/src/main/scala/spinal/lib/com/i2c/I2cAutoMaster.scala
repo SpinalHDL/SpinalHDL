@@ -70,6 +70,8 @@ object I2cAutoMaster {
   val TIMEOUT_W = 20
   /** Default SCL segment length (filter-ticks) for tLow/tHigh/tBuf. */
   val DEFAULT_SEG = 10
+  /** Bits per I2C data/address byte; the ACK/NACK bit is bit index BITS_PER_BYTE. */
+  val BITS_PER_BYTE = 8
 
   def apply(c: Config = Config()): I2cAutoMaster = new I2cAutoMaster(c)
 
@@ -255,7 +257,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     s"I2cAutoMaster.Config.sampWinSize must be >= 2 (got ${c.sampWinSize}): " +
     "the glitch-filter history window needs at least 2 samples")
 
-  import I2cAutoMaster.{Config, Err, BUS_RECOVERY_PULSES, TIMEOUT_W, DEFAULT_SEG}
+  import I2cAutoMaster.{Config, Err, BUS_RECOVERY_PULSES, TIMEOUT_W, DEFAULT_SEG, BITS_PER_BYTE}
 
   val io = I2cAutoMasterIo(c)
 
@@ -428,12 +430,24 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val recovCtr   = Reg(UInt(4 bits)) init(0)
 
     // --- #10: START/STOP setup-hold segments derived from the bit timing ---
-    // The I2C spec's fixed START/STOP setup/hold times (>=0.6 us in Standard
-    // Mode, UM10204 Table 25) are approximated from the configured bit period:
-    // a full bit (tLow + tHigh) conservatively covers TSU:STA / THD:STA /
-    // TSU:STO / THD:STO; a quarter-low floor keeps the FSM snappy when tLow
-    // is tiny (simulation). Sum wraps at 2^timerWidth, which merely caps the
-    // segment at a plausible maximum.
+    // The I2C spec's START/STOP setup/hold minima (UM10204 Table 25, e.g.
+    // TSU:STA >= 4.7 us and TSU:STO >= 4.0 us in Standard Mode) map onto the
+    // FSM segments as follows:
+    //   TSU:STA = START1      = tSegQ          (SCL High before SDA falls)
+    //   THD:STA = START3      = tLow           (SDA Low  after  SCL falls)
+    //   TSU:STO = STOP1       = tSegQ          (SCL High before SDA rises)
+    //   THD:STO = STOP0+STOP1 = tSegFull+tSegQ (SDA Low  after  SCL falls)
+    // tSegQ = max(tLow/4, 1) keeps the FSM snappy when tLow is tiny
+    // (simulation), but it GOVERNS TSU:STA/TSU:STO: a fresh START right after
+    // reset/recovery and every Repeated START only enjoy >= tSegQ of SCL-High
+    // setup (a START preceded by a STOP additionally gains the tBuf bus-free
+    // window). Firmware must therefore size tLow so that tSegQ in time
+    // (tSegQ ticks x sampDiv x clk period) meets the target speed mode's
+    // TSU:STA/TSU:STO minima - see README "Timing compliance". No fixed
+    // tick floor is applied in hardware: the spec minima are time-based and
+    // depend on clk/sampDiv, which the RTL intentionally leaves to firmware.
+    // Sum wraps at 2^timerWidth, which merely caps the segment at a plausible
+    // maximum.
     val tSegFull = Mux((io.cfg.tLow +^ io.cfg.tHigh) === U(0), U(1, c.timerWidth bits),
                        (io.cfg.tLow +^ io.cfg.tHigh).resize(c.timerWidth))
     val tSegQ    = Mux(io.cfg.tLow >= U(4), io.cfg.tLow >> 2, U(1, c.timerWidth bits))
@@ -482,7 +496,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val dataStart    = U(addrBytes, 9 bits)
     val isAddrByte   = byteNum < dataStart
     val isLastAddrByte = byteNum === U(addrBytes - 1, 8 bits)
-    val isAckBit     = bitPos === U(8)
+    val isAckBit     = bitPos === U(BITS_PER_BYTE)
     val isLastByte   = byteNum === (dataStart - U(1)) + curLen
 
     val driveSda: Bool = Mux(isAckBit, Mux(isAddrByte, False, curRw), isAddrByte || !curRw)

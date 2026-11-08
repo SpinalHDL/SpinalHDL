@@ -121,6 +121,32 @@ CMD = {len2=4, len1=1, nackLast=1, phase2=1, rw=0, addr=0x28, trigger=1}
 TX FIFO: [pointer_byte]
 ```
 
+Direction of phase 2 is fixed to the **inverse** of phase 1 (`curRw := !latRw`);
+same-direction composites (write→write or read→read across a Repeated START)
+are not supported by this design.
+
+### Timing Compliance (firmware sizing)
+
+The START/STOP setup/hold minima of UM10204 (Table 25) are realized from the
+runtime-configured bit timing, not from fixed hardware constants:
+
+| Spec parameter | Realized by | Segment |
+|---|---|---|
+| `tSU;STA` (SCL-High before SDA falls) | `tSegQ = max(tLow/4, 1)` filter ticks | START1 |
+| `tHD;STA` (SDA-Low after SCL falls) | `tLow` | START3 |
+| `tSU;STO` (SCL-High before SDA rises) | `tSegQ` | STOP1 |
+| `tHD;STO` (SDA-Low after SCL falls) | `tSegFull + tSegQ` | STOP0+STOP1 |
+
+`TSU:STA` / `TSU:STO` are therefore governed by `tSegQ`. A START preceded by a
+STOP additionally enjoys the `tBuf` bus-free window, but a Repeated START and a
+fresh START right after reset or bus recovery only guarantee `≥ tSegQ` of
+SCL-High setup. Firmware must size `tLow` so that
+`tSegQ × sampDiv × clk_period ≥ max(TSU:STA, TSU:STO)` of the target speed mode
+(e.g. Standard Mode: `TSU:STA ≥ 4.7 µs` → `tLow ≥ ~19 µs`; Fast Mode:
+`≥ 0.6 µs` → `tLow ≥ ~2.4 µs`; consult UM10204 Table 25 for authoritative
+values). The functional test suite uses short tick counts for speed and does
+NOT validate these electrical budgets.
+
 ---
 
 ## I2cAutoSlave
@@ -279,8 +305,10 @@ Key properties (guaranteed by the factory-side binding):
 | FIFO bounds | Simulation asserts catch TX/RX FIFO underflow (pop on empty) and overflow (push on full); unsynthesizable guards, active in sim only |
 | Pre-START bus-free check (UM10204 §3.1.8 AR-1) | Partial: the master rejects a CMD issued while it observes the external bus busy (`errCode=5` BUSY_REJECTED, tracked from START/STOP edges seen after the first accepted transfer). A late JOINER onto an already-active bus still has no re-synchronization path — a documented deviation |
 | 10-bit header acknowledgement (UM10204 §3.1.11 A1/A3) | Fixed: the slave ACKs the first header byte only when the `A9:A8` upper nibble matches its own address (previously it ACKed any `11110` prefix, letting one 10-bit slave swallow another slave's header); read-direction headers are not ACKed on byte 0 — the master proceeds and the authoritative NACK check sits on the last address byte |
-| Arbitration test topology | Detection is exercised by SDA-injection only; the suite has no dual-master topology, so the WINNER side (continuing unaware, no information lost) is untested |
+| Arbitration test topology | Covered both ways: SDA-injection tests the LOSER side (passive exit, `errCode=4`); the dual-master contest topology ("0x10 vs 0x30" and mirrored "swapped addresses") verifies the on-wire content decides the winner (lower address wins, §3.1.8 AR-4/5/6/7/11) and that swapping the instances swaps the winner |
 | Speed envelope | All tests run at `tLow=tHigh=20` @100 MHz (≈2.5 MHz SCL) plus the slow-rate smokes above; no test exercises the electrical (ns-voltage) budgets of Tables 9/10 — simulation is purely functional |
+| START/STOP setup/hold (UM10204 Table 25) | Configuration-dependent: `TSU:STA`/`TSU:STO` = `tSegQ = max(tLow/4,1)` ticks; firmware must size `tLow` per the [Timing Compliance](#timing-compliance-firmware-sizing) section. No hardware floor is applied (spec minima are time-based, dependent on clk/sampDiv) |
+| Same-direction composite (write→write / read→read across Sr) | Not supported: phase-2 direction is hardwired to the inverse of phase 1 (`curRw := !latRw`). Feature boundary of this branch |
 
 ## Testing
 
@@ -288,7 +316,7 @@ Key properties (guaranteed by the factory-side binding):
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim spinal.tester.scalatest.I2cAutoFuzz"
 ```
 
-37 deterministic tests in `I2cAutoSim` plus 5 fuzz tests in `I2cAutoFuzz`
+40 deterministic tests in `I2cAutoSim` plus 5 fuzz tests in `I2cAutoFuzz`
 covering: write, read, composite+RESTART, address NACK,
 data NACK mid-burst abort, full-FIFO burst (64B), runtime abort, back-to-back
 transfers, timeout with 9-pulse recovery **observed on the live wire**
