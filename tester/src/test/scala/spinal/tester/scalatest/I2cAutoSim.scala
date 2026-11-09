@@ -446,9 +446,7 @@ class I2cAutoSim extends AnyFunSuite {
     m.status.busy.simPublic(); m.status.errCode.simPublic(); m.status.aborted.simPublic()
     m.txFifo.io.pop.valid.simPublic(); m.txFifo.io.pop.payload.simPublic(); m.txFifo.io.occupancy.simPublic()
     m.rxFifo.io.pop.valid.simPublic(); m.rxFifo.io.pop.payload.simPublic(); m.rxFifo.io.occupancy.simPublic()
-    m.rxPopIntent.simPublic()
-    m.fsm.bitPos.simPublic(); m.fsm.byteNum.simPublic()
-    m.rxStretchObs.simPublic()
+    m.fsm.bitPos.simPublic(); m.fsm.byteNum.simPublic(); m.fsm.rxStretch.simPublic()
   }
 
   private def pubSlave(s: I2cAutoSlave): Unit = {
@@ -635,11 +633,7 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(5)
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
@@ -685,11 +679,7 @@ class I2cAutoSim extends AnyFunSuite {
       // Drain RX FIFO: should have 2 read bytes (from RAM[1], RAM[2])
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0xBB, 0xCC),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0xBB, 0xCC)")
@@ -728,11 +718,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.master.status.errCode.toInt == 0, s"Transfer 1 err=${dut.master.status.errCode.toInt}")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 2) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x11, 0x22), s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22)")
 
@@ -817,11 +803,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
              s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
@@ -1311,11 +1293,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt} (stretched at byte=$stretchedByteNum bit=$stretchedBitPos)")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 4) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C, 0xE7, 0x19) (stretch at byte=$stretchedByteNum bit=$stretchedBitPos)")
@@ -1369,11 +1347,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.slave.ram.getBigInt(1).toInt == 0xBB, "RAM[1] mismatch after stretch")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 4) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C, 0xE7, 0x19)")
@@ -1425,11 +1399,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.slave.ram.getBigInt(1).toInt == 0xBB, "RAM[1] mismatch after stretch")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 4) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C, 0xE7, 0x19)")
@@ -1482,11 +1452,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.slaveA.ram.getBigInt(1).toInt == 0xBB, "A RAM[1]")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 2) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x11, 0x22), s"RX=${rxValues.reverse}")
 
@@ -1627,12 +1593,8 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Read back
       for (i <- data.indices) {
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        val rxVal = dut.master.rxFifo.io.pop.payload.toInt
+        val rxVal = bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         assert(rxVal == data(i), f"RX[$i]=0x${rxVal}%02X exp 0x${data(i)}%02X")
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
       }
       // Golden vectors (UM10204 sec. 3.1.11 A1/A3): the read-direction
       // 10-bit header is 11110 A9 A8 R/W=1 then A7..A0. NO slave may ACK
@@ -1678,12 +1640,8 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Verify read phase
       for (i <- readData.indices) {
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        val rxVal = dut.master.rxFifo.io.pop.payload.toInt
+        val rxVal = bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         assert(rxVal == readData(i), f"RX[$i]=0x${rxVal}%02X exp 0x${readData(i)}%02X")
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
       }
     }
   }
@@ -1715,11 +1673,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
       var rxValues = List.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
              s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
@@ -1780,8 +1734,8 @@ class I2cAutoSim extends AnyFunSuite {
 
       // The master is now stuck (full FIFO, no drain): it must be holding SCL Low.
       var sw = 0
-      while (!dut.master.rxStretchObs.toBoolean && sw < 5000) { cd.waitActiveEdge(); sw += 1 }
-      assert(dut.master.rxStretchObs.toBoolean, "Master did not engage RX clock-stretch while FIFO full")
+      while (!dut.master.fsm.rxStretch.toBoolean && sw < 5000) { cd.waitActiveEdge(); sw += 1 }
+      assert(dut.master.fsm.rxStretch.toBoolean, "Master did not engage RX clock-stretch while FIFO full")
       assert(!dut.masterSclRelease.toBoolean, "SCL not held Low during RX clock-stretch")
 
       // Drain 10 bytes to make room; the master should release the stretch and
@@ -1789,10 +1743,7 @@ class I2cAutoSim extends AnyFunSuite {
       var drained = 0
       while (drained < 10) {
         if (dut.master.rxFifo.io.pop.valid.toBoolean) {
-          dut.master.rxPopIntent #= true
-          cd.waitActiveEdge()
-          dut.master.rxPopIntent #= false
-          cd.waitActiveEdge()
+          bmbRead(dut.masterRegBus, 0x14, cd)
           drained += 1
         } else cd.waitActiveEdge()
       }
@@ -1803,11 +1754,7 @@ class I2cAutoSim extends AnyFunSuite {
       // Drain the rest and verify all remaining bytes arrived in order (no loss).
       val rxValues = scala.collection.mutable.ArrayBuffer.empty[Int]
       while (dut.master.rxFifo.io.pop.valid.toBoolean) {
-        rxValues += dut.master.rxFifo.io.pop.payload.toInt
-        dut.master.rxPopIntent #= true
-        cd.waitActiveEdge()
-        dut.master.rxPopIntent #= false
-        cd.waitActiveEdge()
+        rxValues += bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
       }
       // We drained the first 10 (0x10..0x19) above; the remaining 60 are 0x1A..0x55.
       assert(rxValues.size == 60, s"expected 60 remaining bytes after 10 drained, got ${rxValues.size}")
@@ -2008,12 +1955,7 @@ class I2cAutoSim extends AnyFunSuite {
         assert(!dut.slaveB.wasAddressed.toBoolean, "slave B must not latch wasAddressed")
         // Drain the 3 bytes from the master RX FIFO.
         val rx = (0 until 3).map { _ =>
-          dut.master.rxPopIntent #= true
-          cd.waitActiveEdge()
-          val v = dut.master.rxFifo.io.pop.payload.toInt
-          dut.master.rxPopIntent #= false
-          cd.waitActiveEdge()
-          v
+          bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         }.toList
         assert(rx == List(0x11, 0x22, 0x33), s"RX=$rx, expected List(0x11, 0x22, 0x33)")
         for (i <- 0 until 64) {
@@ -2135,12 +2077,7 @@ class I2cAutoSim extends AnyFunSuite {
         assert(dut.master.status.errCode.toInt == 0, s"$label read: errCode=${dut.master.status.errCode.toInt}")
         cd.waitActiveEdge(5)
         val rx = (0 until 2).map { _ =>
-          dut.master.rxPopIntent #= true
-          cd.waitActiveEdge()
-          val v = dut.master.rxFifo.io.pop.payload.toInt
-          dut.master.rxPopIntent #= false
-          cd.waitActiveEdge()
-          v
+          bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         }.toList
         assert(rx == List(0x5A, 0xA5), s"$label read: RX=$rx")
       }
@@ -2226,11 +2163,7 @@ class I2cAutoSim extends AnyFunSuite {
         cd.waitActiveEdge(5)
         var rxValues = List.empty[Int]
         while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 1) {
-          rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-          dut.master.rxPopIntent #= true
-          cd.waitActiveEdge()
-          dut.master.rxPopIntent #= false
-          cd.waitActiveEdge()
+          rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         }
         assert(rxValues == List(0x77),
           s"RX=${rxValues.map(v => f"0x$v%02X")}, expected List(0x77) read from B")
@@ -2271,11 +2204,7 @@ class I2cAutoSim extends AnyFunSuite {
         cd.waitActiveEdge(5)
         var rxValues = List.empty[Int]
         while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 1) {
-          rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
-          dut.master.rxPopIntent #= true
-          cd.waitActiveEdge()
-          dut.master.rxPopIntent #= false
-          cd.waitActiveEdge()
+          rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         }
         assert(rxValues == List(0x77),
           s"RX=${rxValues.map(v => f"0x$v%02X")}, expected List(0x77) read from A (address repeat)")

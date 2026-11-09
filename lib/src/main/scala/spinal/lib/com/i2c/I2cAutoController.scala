@@ -833,11 +833,4 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
   when(fsm.rxStretch) {
     timeoutCtr := io.cfg.timeout
   }
-
-  // Internal observation taps for white-box testbenches (I2cAutoSim /
-  // I2cAutoFuzz). The simPublic() calls live in the TEST-SOURCE top classes
-  // (pubMaster / pubSlave there) so this library file stays free of
-  // spinal.core.sim; only the member aliases the tests reach through
-  // instance paths are kept here.
-  val rxStretchObs = fsm.rxStretch   // test/debug tap: RX clock-stretch condition
 }

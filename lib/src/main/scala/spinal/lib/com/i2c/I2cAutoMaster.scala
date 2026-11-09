@@ -306,10 +306,6 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   val fifoStage = new Area {
     val txFifo = StreamFifo(Bits(8 bits), c.fifoDepth, latency = 0)
     val rxFifo = StreamFifo(Bits(8 bits), c.fifoDepth, latency = 0)
-    // Manual pop hook (held at 0 by the design): simulations may #= force
-    // it to drain the RX FIFO directly, bypassing the register bus.
-    val rxPopIntent = RegInit(False)
-
     // TX_DATA register pulse -> txFifo push (Flow: fire-and-forget; the
     // overflow assert below is the loud guard).
     txFifo.io.push.valid   := io.tx.valid
@@ -326,14 +322,13 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     // returned head is atomic with the pop.
     io.rx.valid   := rxFifo.io.pop.valid
     io.rx.payload := rxFifo.io.pop.payload
-    rxFifo.io.pop.ready := io.rx.ready || rxPopIntent
+    rxFifo.io.pop.ready := io.rx.ready
 
     assert(!(io.tx.valid && !txFifo.io.push.ready), "txFifo overflow: push on full FIFO")
     assert(!(engine.io.txData.fire && !txFifo.io.pop.valid), "txFifo underflow: pop on empty FIFO")
   }
   val txFifo      = fifoStage.txFifo
   val rxFifo      = fifoStage.rxFifo
-  val rxPopIntent = fifoStage.rxPopIntent
 
   // === Interrupt controller ===
   // Sticky flags latched from the controller's one-cycle event pulses
@@ -367,5 +362,4 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   val fsm          = engine.fsm
   val busBusyExt   = engine.busBusyExt
   val status       = engine.status
-  val rxStretchObs = engine.rxStretchObs
 }

@@ -87,10 +87,7 @@ class I2cAutoFuzz extends AnyFunSuite {
   def resetBetweenIter(cd: ClockDomain, dut: FuzzTop): Unit = {
     // Drain RX FIFO
     while (dut.master.rxFifo.io.pop.valid.toBoolean) {
-      dut.master.rxPopIntent #= true
-      cd.waitActiveEdge()
-      dut.master.rxPopIntent #= false
-      cd.waitActiveEdge()
+      bmbRead(dut.masterRegBus, 0x14, cd)
     }
     // Wait for TX FIFO to drain (master should have consumed all)
     var waitTx = 0
@@ -105,11 +102,7 @@ class I2cAutoFuzz extends AnyFunSuite {
   def drainRx(cd: ClockDomain, dut: FuzzTop): List[Int] = {
     var result = List.empty[Int]
     while (dut.master.rxFifo.io.pop.valid.toBoolean) {
-      result ::= dut.master.rxFifo.io.pop.payload.toInt
-      dut.master.rxPopIntent #= true
-      cd.waitActiveEdge()
-      dut.master.rxPopIntent #= false
-      cd.waitActiveEdge()
+      result ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
     }
     result.reverse
   }
@@ -121,6 +114,29 @@ class I2cAutoFuzz extends AnyFunSuite {
     bus.cmd.ready.simPublic()
     bus.rsp.valid.simPublic(); bus.rsp.ready.simPublic()
     bus.rsp.opcode.simPublic(); bus.rsp.data.simPublic()
+  }
+
+  // Helper: full Bmb register read (handshake-complete), returns rsp.data.
+  // Pops the master RX FIFO through its FUNCTIONAL interface (RX_DATA 0x14,
+  // pop-on-read) instead of forcing internal nodes: the returned word is the
+  // pre-pop head {valid[8], data[7:0]}, registered one cycle after the read
+  // fires, while the pop itself happens on the accepted-read cycle.
+  def bmbRead(bus: Bmb, addr: Int, cd: ClockDomain): Int = {
+    bus.cmd.valid   #= true
+    bus.cmd.opcode  #= 0   // Bmb READ
+    bus.cmd.address #= addr
+    bus.cmd.length  #= 0
+    bus.rsp.ready   #= true
+    cd.waitActiveEdge()
+    var c = 0
+    while (!bus.cmd.ready.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbRead: cmd not ready (addr=0x${addr.toHexString})")
+    bus.cmd.valid   #= false
+    cd.waitActiveEdge()
+    val data = bus.rsp.data.toInt
+    bus.rsp.ready   #= false
+    cd.waitActiveEdge()
+    data
   }
 
   // Helper: full Bmb register write (handshake-complete)
@@ -167,9 +183,7 @@ class I2cAutoFuzz extends AnyFunSuite {
     m.status.busy.simPublic(); m.status.errCode.simPublic(); m.status.aborted.simPublic()
     m.txFifo.io.pop.valid.simPublic(); m.txFifo.io.pop.payload.simPublic(); m.txFifo.io.occupancy.simPublic()
     m.rxFifo.io.pop.valid.simPublic(); m.rxFifo.io.pop.payload.simPublic(); m.rxFifo.io.occupancy.simPublic()
-    m.rxPopIntent.simPublic()
-    m.fsm.bitPos.simPublic(); m.fsm.byteNum.simPublic()
-    m.rxStretchObs.simPublic()
+    m.fsm.bitPos.simPublic(); m.fsm.byteNum.simPublic(); m.fsm.rxStretch.simPublic()
   }
 
   private def pubSlave(s: I2cAutoSlave): Unit = {
