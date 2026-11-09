@@ -218,30 +218,8 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     Mux(p === U(c.ramDepth - 1, ramAddrW bits), U(0, ramAddrW bits), p + U(1))
 
   // === Input conditioning (#5, #6, #16) ===
-  val filterTick = new Area {
-    val counter = Reg(UInt(c.sampDivWidth bits)) init(0)
-    val tick    = counter === U(0)
-    counter := Mux(tick, io.cfg.sampDiv, counter - U(1))
-  }
-
-  // Two-FF synchronization of the observed bus wires (external clock domain);
-  // the glitch filter updates only on a UNANIMOUS window (the old andR||orR
-  // reduced to orR — any non-zero pattern passed through). ALL protocol logic
-  // below consumes the filtered signals, never the raw pins.
-  val sclSync = BufferCC(io.i2c.scl.write, 2)
-  val sdaSync = BufferCC(io.i2c.sda.write, 2)
-
-  val sclFilt = RegInit(True)
-  val sdaFilt = RegInit(True)
-  val sclHist = RegInit(~U(0, c.sampWinSize bits).asBits)
-  val sdaHist = RegInit(~U(0, c.sampWinSize bits).asBits)
-
-  when(filterTick.tick) {
-    sclHist := Cat(sclSync, sclHist(c.sampWinSize - 2 downto 0))
-    sdaHist := Cat(sdaSync, sdaHist(c.sampWinSize - 2 downto 0))
-    when(sclHist.andR || sclHist.nandR) { sclFilt := sclSync }
-    when(sdaHist.andR || sdaHist.nandR) { sdaFilt := sdaSync }
-  }
+  val busFilter = new I2cWireConditioner(io.i2c.scl.write, io.i2c.sda.write, io.cfg.sampDiv, c.sampWinSize, c.sampDivWidth)
+  import busFilter.{sclFilt, sdaFilt}
 
   // === Edge detection (filtered, #16) ===
   val sclFiltPrev = RegInit(True)

@@ -153,32 +153,7 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
   // signals into history/edge logic is the classic multi-chip hazard.
   // Precedent: I2cIoFilter in Misc.scala.
   //
-  // Glitch filter: sliding-window history; the filtered value only updates
-  // when the ENTIRE window agrees (unanimous). The old condition
-  // (andR || orR) reduced to orR (any non-zero pattern), letting a
-  // single-sample glitch straight through. Windows start all-ones = released.
-  val busFilter = new Area {
-    val sclSync = BufferCC(io.i2c.scl.read, 2)
-    val sdaSync = BufferCC(io.i2c.sda.read, 2)
-
-    val filterTick = new Area {
-      val counter = Reg(UInt(c.sampDivWidth bits)) init(0)
-      val tick    = counter === U(0)
-      counter := Mux(tick, io.cfg.sampDiv, counter - U(1))
-    }
-
-    val sclFilt = RegInit(True)
-    val sdaFilt = RegInit(True)
-    val sclHist = RegInit(~U(0, c.sampWinSize bits).asBits)
-    val sdaHist = RegInit(~U(0, c.sampWinSize bits).asBits)
-
-    when(filterTick.tick) {
-      sclHist := Cat(sclSync, sclHist(c.sampWinSize - 2 downto 0))
-      sdaHist := Cat(sdaSync, sdaHist(c.sampWinSize - 2 downto 0))
-      when(sclHist.andR || sclHist.nandR) { sclFilt := sclSync }
-      when(sdaHist.andR || sdaHist.nandR) { sdaFilt := sdaSync }
-    }
-  }
+  val busFilter = new I2cWireConditioner(io.i2c.scl.read, io.i2c.sda.read, io.cfg.sampDiv, c.sampWinSize, c.sampDivWidth)
   import busFilter.{sclFilt, sdaFilt}
 
   // (The timeout watchdog lives further down, grouped with its SCL-edge
@@ -832,5 +807,47 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
   // falsely recover/abort a healthy transfer.
   when(fsm.rxStretch) {
     timeoutCtr := io.cfg.timeout
+  }
+}
+
+/**
+  * Sliding-window glitch filter for I2C bus wires.
+  *
+  * Samples the raw (externally-driven) SCL/SDA through a 2-FF synchronizer,
+  * then advances a `sampWinSize`-bit history register every `sampDiv` clocks.
+  * The filtered output updates only when the ENTIRE window is unanimous
+  * (`andR || nandR`), guaranteeing that a transient narrower than the
+  * window cannot propagate.
+  *
+  * NOTE: This is NOT timing-equivalent to [[I2cIoFilter]] (used by the legacy
+  * I2CSlave/I2cCtrl family). The window indexing and assigned value differ by
+  * 2 ticks. Do not substitute one for the other.
+  */
+class I2cWireConditioner(
+  sclRaw: Bool,
+  sdaRaw: Bool,
+  sampDiv: UInt,
+  sampWinSize: Int,
+  sampDivWidth: Int
+) extends Area {
+  val sclSync = BufferCC(sclRaw, 2)
+  val sdaSync = BufferCC(sdaRaw, 2)
+
+  val timer = new Area {
+    val counter = Reg(UInt(sampDivWidth bits)) init(0)
+    val tick    = counter === U(0)
+    counter := Mux(tick, sampDiv, counter - U(1))
+  }
+
+  val sclFilt = RegInit(True)
+  val sdaFilt = RegInit(True)
+  val sclHist = RegInit(~U(0, sampWinSize bits).asBits)
+  val sdaHist = RegInit(~U(0, sampWinSize bits).asBits)
+
+  when(timer.tick) {
+    sclHist := Cat(sclSync, sclHist(sampWinSize - 2 downto 0))
+    sdaHist := Cat(sdaSync, sdaHist(sampWinSize - 2 downto 0))
+    when(sclHist.andR || sclHist.nandR) { sclFilt := sclSync }
+    when(sdaHist.andR || sdaHist.nandR) { sdaFilt := sdaSync }
   }
 }
