@@ -31,6 +31,9 @@ class I2cAutoFuzz extends AnyFunSuite {
     master.io.i2c.sda.read := sdaAnd
     slave.io.i2c.sda.write := sdaAnd
 
+    // Publish internals for white-box probes (kept out of the library RTL)
+    pubMaster(master); pubSlave(slave)
+
     // Register maps: top-level Bmb slave ports + factories bound to the cores
     val regBusParam = BmbAccessParameter(8, 32).addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2)).toBmbParameter()
     val masterRegBus = spinal.lib.slave(Bmb(regBusParam))
@@ -48,15 +51,15 @@ class I2cAutoFuzz extends AnyFunSuite {
 
   // Push a byte via the TX_DATA register (real firmware path)
   def pushTx(cd: ClockDomain, dut: FuzzTop, data: Int): Unit = {
-    bmbWrite(dut.masterRegBus, 0x0C, data, cd)
+    bmbWrite(dut.masterRegBus, 0x10, data, cd)
   }
 
-  // Issue a command via the LEN1/LEN2/CMD registers (atomic trigger)
+  // Issue a command via the BYTE_COUNT/P2_BYTE_COUNT/CMD registers (atomic trigger)
   def issueCmd(cd: ClockDomain, dut: FuzzTop, addr: Int, rw: Boolean,
                phase2: Boolean = false, nackLast: Boolean = false,
-               len1: Int, len2: Int = 0): Unit = {
-    bmbWrite(dut.masterRegBus, 0x04, len1, cd)
-    bmbWrite(dut.masterRegBus, 0x08, len2, cd)
+               byteCount: Int, p2ByteCount: Int = 0): Unit = {
+    bmbWrite(dut.masterRegBus, 0x04, byteCount, cd)
+    bmbWrite(dut.masterRegBus, 0x0C, p2ByteCount, cd)
     val data = (if (nackLast) 1 else 0) << 9 |
                (if (phase2)   1 else 0) << 8 |
                (if (rw)       1 else 0) << 7 |
@@ -149,11 +152,34 @@ class I2cAutoFuzz extends AnyFunSuite {
 
   // Configure master + slave timing via the register buses
   def cfgTiming(cd: ClockDomain, dut: FuzzTop): Unit = {
-    regWrite(dut, isMaster = true,  addr = 0x24, data = 1)   // CFG_SAMPDIV
-    regWrite(dut, isMaster = true,  addr = 0x2C, data = 20)  // CFG_TLOW
-    regWrite(dut, isMaster = true,  addr = 0x30, data = 20)  // CFG_THIGH
-    regWrite(dut, isMaster = true,  addr = 0x34, data = 20)  // CFG_TBUF
+    regWrite(dut, isMaster = true,  addr = 0x28, data = 1)   // CFG_SAMPDIV
+    regWrite(dut, isMaster = true,  addr = 0x30, data = 20)  // CFG_TLOW
+    regWrite(dut, isMaster = true,  addr = 0x34, data = 20)  // CFG_THIGH
+    regWrite(dut, isMaster = true,  addr = 0x38, data = 20)  // CFG_TBUF
     regWrite(dut, isMaster = false, addr = 0x1C, data = 1)   // CFG_SAMPDIV
+  }
+
+  // ---- simPublic taps -------------------------------------------------------
+  // Published HERE (test sources) instead of in the RTL, so the library
+  // files stay free of spinal.core.sim. Called from the test-top class
+  // bodies (elaboration phase). Mirrors the set the RTL used to publish;
+  private def pubMaster(m: I2cAutoMaster): Unit = {
+    m.status.busy.simPublic(); m.status.errCode.simPublic(); m.status.aborted.simPublic()
+    m.txFifo.io.pop.valid.simPublic(); m.txFifo.io.pop.payload.simPublic(); m.txFifo.io.occupancy.simPublic()
+    m.rxFifo.io.pop.valid.simPublic(); m.rxFifo.io.pop.payload.simPublic(); m.rxFifo.io.occupancy.simPublic()
+    m.rxPopIntent.simPublic()
+    m.fsm.bitPos.simPublic(); m.fsm.byteNum.simPublic()
+    m.rxStretchObs.simPublic()
+  }
+
+  private def pubSlave(s: I2cAutoSlave): Unit = {
+    s.stretchActive.simPublic()
+    s.intr.flags.simPublic()
+    s.dataPtr.simPublic(); s.ram.simPublic()
+    s.tenBitUpper.simPublic(); s.addrByteIdx.simPublic()
+    s.hasStarted.simPublic(); s.inFrame.simPublic()
+    s.sdaOut.simPublic(); s.bitPos.simPublic(); s.inAck.simPublic()
+    s.rxAccum.simPublic(); s.wasAddressed.simPublic(); s.isRead.simPublic()
   }
 
   test("I2cAuto fuzz: 100 random writes") {
@@ -184,7 +210,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         }
 
         // Trigger write
-        issueCmd(cd, dut, addr = 0x28, rw = false, len1 = len)
+        issueCmd(cd, dut, addr = 0x28, rw = false, byteCount = len)
 
         // Wait
         val ok = waitForIdle(cd, dut)
@@ -239,7 +265,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         cd.waitActiveEdge(5)
 
         // Trigger read
-        issueCmd(cd, dut, addr = 0x28, rw = true, nackLast = true, len1 = len)
+        issueCmd(cd, dut, addr = 0x28, rw = true, nackLast = true, byteCount = len)
 
         // Per-iteration failure tracking: one bad iteration counts as 1,
         // regardless of how many sub-checks (timeout/err/rx) it trips.
@@ -310,7 +336,7 @@ class I2cAutoFuzz extends AnyFunSuite {
 
         // Trigger composite
         issueCmd(cd, dut, addr = 0x28, rw = false, phase2 = true, nackLast = true,
-                 len1 = wLen, len2 = rLen)
+                 byteCount = wLen, p2ByteCount = rLen)
 
         val ok = waitForIdle(cd, dut)
         if (!ok) {
@@ -345,7 +371,7 @@ class I2cAutoFuzz extends AnyFunSuite {
     }
   }
 
-  // Reverse-direction composite: READ first (len1), then RESTART, then WRITE (len2).
+  // Reverse-direction composite: READ first (byteCount), then RESTART, then WRITE (p2ByteCount).
   // Slave model: dataPtr starts at 0; the read phase streams RAM[0..rLen-1] and
   // advances dataPtr; the write phase stores into RAM[rLen..rLen+wLen-1].
   // Pins the phantom-pop / dataPtr-desync class in the read->write direction
@@ -385,7 +411,7 @@ class I2cAutoFuzz extends AnyFunSuite {
 
         // Trigger reverse composite: rw=true selects the read phase first
         issueCmd(cd, dut, addr = 0x28, rw = true, phase2 = true, nackLast = true,
-                 len1 = rLen, len2 = wLen)
+                 byteCount = rLen, p2ByteCount = wLen)
 
         var bad = false
         val ok = waitForIdle(cd, dut)
@@ -452,7 +478,7 @@ class I2cAutoFuzz extends AnyFunSuite {
           pushTx(cd, dut, d)
         }
 
-        issueCmd(cd, dut, addr = 0x28, rw = false, nackLast = nackLast, len1 = len)
+        issueCmd(cd, dut, addr = 0x28, rw = false, nackLast = nackLast, byteCount = len)
 
         var bad = false
         val ok = waitForIdle(cd, dut)

@@ -10,7 +10,8 @@ particular bus type.
 
 | Component | File | Role |
 |-----------|------|------|
-| `I2cAutoMaster` | `I2cAutoMaster.scala` | FSM-driven master with TX/RX FIFOs |
+| `I2cAutoMaster` | `I2cAutoMaster.scala` | CSR host adapter: register map, TX/RX byte FIFOs, interrupt controller |
+| `I2cAutoController` | `I2cAutoController.scala` | Bus-facing engine: bus conditioning, watchdog, transfer FSM (START/addr/data/RESTART/STOP/recovery) |
 | `I2cAutoSlave` | `I2cAutoSlave.scala` | Slave with sparse RAM, dual-port access |
 
 > Example top-levels (SpinalVerilog generation demos, 7-bit and 10-bit variants) live outside the library:
@@ -34,16 +35,16 @@ case class Config(
 ```
 io.i2c      : master(I2c())   // Open-drain I2C pins
 io.irq      : Bool            // Maskable interrupt output
-io.cmd      : {addr, rw, phase2, nackLast, len1, len2, trigger}
-io.tx       : {data, push}
-io.rx       : {head, notEmpty, pop}
+io.cmd      : {addr, rw, phase2, nackLast, byteCount, p2ByteCount, trigger}
+io.tx       : Flow(Bits(8))  // valid/payload — one-cycle push per TX_DATA write
+io.rx       : Stream(Bits(8)) // valid/payload/ready — pop-on-read
 io.status   : {busy, errCode, aborted, txAvail, rxAvail}
-io.intr     : {en, fl, clr}
+io.intr     : {en, flags, clr}
 io.cfg      : {sampDiv, timeout, tLow, tHigh, tBuf, abort}
 ```
 
-(`trigger`/`push`/`pop`/`abort` are one-cycle pulses produced by the register
-map binding; `head` is the pre-pop RX FIFO head.)
+(`trigger`/`tx.valid`/`abort` are one-cycle pulses produced by the register
+map binding; `rx` pops on the accepted register read.)
 
 The controller exposes **no register-bus port of its own**. Instead,
 `io.driveFrom(busCtrl, baseAddress)` binds the register map below to a
@@ -57,21 +58,21 @@ values and event pulses. Any bus family whose slave factory extends
 | Offset | Name | Access | Description |
 |--------|------|--------|-------------|
 | 0x00 | CMD | WO | `{nackLast[addrW+2], phase2[addrW+1], rw[addrW], addr[addrW-1:0]}` — fields + trigger land atomically on the write handshake |
-| 0x04 | LEN1 | WO | Phase-1 data byte count |
-| 0x08 | LEN2 | WO | Phase-2 data byte count |
-| 0x0C | TX_DATA | WO | Push one byte into TX FIFO (`data[7:0]`) |
-| 0x10 | RX_DATA | RO | `{notEmpty[8], data[7:0]}` — pop-on-read |
-| 0x14 | STATUS | RO | `{aborted[6], errCode[5:3], rxAvail[2], txAvail[1], busy[0]}` |
-| 0x18 | INT_EN | RW | Interrupt enable mask [2:0] |
-| 0x1C | INT_FLAG | RO | Interrupt flags |
-| 0x20 | INT_CLR | W1C | Interrupt clear [2:0] |
-| 0x24 | CFG_SAMPDIV | WO | Input filter sample divider |
-| 0x28 | CFG_TIMEOUT | WO | Bus-hang timeout (0 = disabled) |
-| 0x2C | CFG_TLOW | WO | SCL Low period |
-| 0x30 | CFG_THIGH | WO | SCL High period |
-| 0x34 | CFG_TBUF | WO | Post-STOP idle time |
-| 0x38 | CTRL | WO | `{abrt[0]}` — abort active transfer |
-| 0x3C | CMD_P2 | RW | Phase-2 address for cross-slave RESTART composites: `{valid[addrW], p2Addr[addrW-1:0]}`. Writing never triggers a transfer. `valid=1`: phase 2 addresses `p2Addr`; `valid=0`: legacy behavior (phase 2 repeats the phase-1 address) |
+| 0x04 | BYTE_COUNT | WO | Phase-1 data byte count |
+| 0x08 | CMD_P2 | RW | Phase-2 address for cross-slave RESTART composites: `{valid[addrW], p2Addr[addrW-1:0]}`. Writing never triggers a transfer. `valid=1`: phase 2 addresses `p2Addr`; `valid=0`: legacy behavior (phase 2 repeats the phase-1 address) |
+| 0x0C | P2_BYTE_COUNT | WO | Phase-2 data byte count |
+| 0x10 | TX_DATA | WO | Push one byte into TX FIFO (`data[7:0]`) |
+| 0x14 | RX_DATA | RO | `{notEmpty[8], data[7:0]}` — pop-on-read |
+| 0x18 | STATUS | RO | `{aborted[6], errCode[5:3], rxAvail[2], txAvail[1], busy[0]}` |
+| 0x1C | INT_EN | RW | Interrupt enable mask [2:0] |
+| 0x20 | INT_FLAG | RO | Interrupt flags |
+| 0x24 | INT_CLR | W1C | Interrupt clear [2:0] |
+| 0x28 | CFG_SAMPDIV | WO | Input filter sample divider |
+| 0x2C | CFG_TIMEOUT | WO | Bus-hang timeout (0 = disabled) |
+| 0x30 | CFG_TLOW | WO | SCL Low period |
+| 0x34 | CFG_THIGH | WO | SCL High period |
+| 0x38 | CFG_TBUF | WO | Post-STOP idle time |
+| 0x3C | CTRL | WO | `{abrt[0]}` — abort active transfer |
 
 ### Interrupt Sources
 
@@ -103,7 +104,7 @@ values and event pulses. Any bus family whose slave factory extends
 ```
 
 > **Firmware contract (TX/RX FIFO sizing).**
-> - **TX:** before issuing a write command, preload **at least `len1`** (and `len2` for the phase-2 write portion) bytes into the TX FIFO. The RTL pops one byte per transmitted bit-group and does **not** stall on an empty FIFO — an under-run shifts out undefined data with no `errCode`. Preloading is the responsibility of the driver (there is no hardware NAK for TX under-run).
+> - **TX:** before issuing a write command, preload **at least `byteCount`** (and `p2ByteCount` for the phase-2 write portion) bytes into the TX FIFO. The RTL pops one byte per transmitted bit-group and does **not** stall on an empty FIFO — an under-run shifts out undefined data with no `errCode`. Preloading is the responsibility of the driver (there is no hardware NAK for TX under-run).
 > - **RX:** drain RX_DATA within `fifoDepth` (default 64) bytes of a read, or the RX FIFO fills and the controller stops clocking (slave clock-stretch equivalent). Reads longer than `fifoDepth` must be drained incrementally.
 
 ---
@@ -111,13 +112,13 @@ values and event pulses. Any bus family whose slave factory extends
 ### Composite Transfers (RESTART)
 
 Set `phase2=1` in CMD to perform an atomic write→RESTART→read:
-- `rw` + `len1`: Phase 1 (typically write address/pointer)
-- `len2`: Phase 2 (read data)
+- `rw` + `byteCount`: Phase 1 (typically write address/pointer)
+- `p2ByteCount`: Phase 2 (read data)
 - `nackLast`: NACK the last byte of phase 2 (standard I2C read termination)
 
 Example: Write 1-byte pointer, then read 4 bytes:
 ```
-CMD = {len2=4, len1=1, nackLast=1, phase2=1, rw=0, addr=0x28, trigger=1}
+CMD = {p2ByteCount=4, byteCount=1, nackLast=1, phase2=1, rw=0, addr=0x28, trigger=1}
 TX FIFO: [pointer_byte]
 ```
 
@@ -170,7 +171,7 @@ io.i2c        : slave(I2c())   // Open-drain I2C pins
 io.irq        : Bool           // Maskable interrupt output
 io.sclStretch : Bool           // Active while the slave is stretching SCL
 io.cfg        : {slaveAddr, addrMatchEn, ptrVal, ptrLoad, ramWrAddr, ramWrData, ramWrValid, sampDiv, timeout, stretchReq}
-io.intr       : {en, fl, clr}
+io.intr       : {en, flags, clr}
 io.status     : {inFrame, errNack, ptr, stretchClr}
 ```
 
@@ -228,9 +229,9 @@ bound bus):
 
 ```
 // Master
-WRITE 0x04 <- 4                    // LEN1
+WRITE 0x04 <- 4                    // BYTE_COUNT
 WRITE 0x00 <- (0 << 10) | 0x345    // CMD: rw=0, addr=0x345 (write triggers)
-TX FIFO: push 4 bytes via 0x0C
+TX FIFO: push 4 bytes via 0x10
 
 // Slave
 WRITE 0x00 <- (1 << 10) | 0x345    // ADDR: matchEn=1, addr=0x345
@@ -342,9 +343,9 @@ Additional specification-conformance coverage:
   3-sample filter (data intact, no spurious START/STOP)
 - **Busy rejection (errCode=5)**: a CMD issued while a transfer is active or
   while the external bus is busy (including during the 9-pulse recovery tail)
-  is rejected with `errCode=5` + `intr.fl(1)`, instead of being silently
+  is rejected with `errCode=5` + `intr.flags(1)`, instead of being silently
   swallowed
-- **Cross-slave RESTART routing**: `CMD_P2` (0x3C) routes phase 2 to a second
+- **Cross-slave RESTART routing**: `CMD_P2` (0x08) routes phase 2 to a second
   slave (write->Sr->read verified); `valid=0` preserves legacy address repeat
 
 Features with dedicated test coverage:

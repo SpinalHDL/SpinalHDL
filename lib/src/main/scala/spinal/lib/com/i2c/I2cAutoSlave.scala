@@ -1,7 +1,6 @@
 package spinal.lib.com.i2c
 
 import spinal.core._
-import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
 
@@ -108,7 +107,7 @@ object I2cAutoSlave {
     val intClr = RegInit(B(0, 2 bits))
     factory.write(intEn, 0x10)
     factory.read(intEn, 0x10)  // INT_EN is documented RW: allow readback
-    factory.read(intr.fl, 0x14)
+    factory.read(intr.flags, 0x14)
     // INT_CLR is a W1C pulse: default to 0 every cycle; the register-map
     // write materializes after this default, so the clear lasts exactly one
     // cycle instead of sticking.
@@ -154,7 +153,7 @@ case class I2cAutoSlaveIo(c: I2cAutoSlave.Config) extends Bundle {
 
   val intr = new Bundle {
     val en  = in Bits(2 bits)
-    val fl  = out Bits(2 bits)
+    val flags  = out Bits(2 bits)
     val clr = in Bits(2 bits)  // W1C
   }
 
@@ -281,10 +280,10 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   // === Interrupts ===
   val intr = new Area {
-    val fl = RegInit(B(0, 2 bits))
-    for (i <- 0 until 2) { fl(i) clearWhen(io.intr.clr(i)) }
+    val flags = RegInit(B(0, 2 bits))
+    for (i <- 0 until 2)  { flags(i) clearWhen(io.intr.clr(i)) }
   }
-  io.irq := (io.intr.en & intr.fl).orR
+  io.irq := (io.intr.en & intr.flags).orR
 
   // Sticky error flag: set on a sparse-RAM NACK, cleared on the next START
   // or STOP. Assigned inside conditional branches only, hence the tag
@@ -323,7 +322,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
       // Only raise rx-complete if we were actually addressed and participated;
       // a NACKed / foreign frame must not set the flag (avoids spurious
       // interrupts on a shared bus).
-      when(wasAddressed) { intr.fl(0) := True }
+      when(wasAddressed) { intr.flags(0) := True }
     }
     inFrame    := False
     hasStarted := False
@@ -484,7 +483,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
               // Sparse-RAM NACK: report it like any other NACK (STATUS.errNack
               // + INT_FLAG[1]); previously the NACK was driven but silent.
               statusErrNack := True
-              intr.fl(1)     := True
+              intr.flags(1)     := True
             }
             dataPtr := dataPtr + U(1)
             sdaOut  := !ptrValid(dataPtr)
@@ -541,8 +540,9 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     // Engage only while the bus SCL is Low (hold it there until released)
     when(!sclFilt) { stretchActive := True }
   }
-  stretchActive.simPublic()
-  intr.fl.simPublic()  // tests poll the flag directly (it lags the master's busy release)
+  // (simPublic taps for this component live in the TEST-SOURCE top classes —
+  //  pubSlave in I2cAutoSim/I2cAutoFuzz — keeping this file sim-free.)
+  // intr.flags: tests poll the flag directly (it lags the master's busy release)
   io.i2c.scl.read := !stretchActive
   io.sclStretch := stretchActive
 
@@ -553,19 +553,9 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   io.status.inFrame := inFrame
   io.status.errNack := statusErrNack
   io.status.ptr     := dataPtr
-  io.intr.fl        := intr.fl
+  io.intr.flags        := intr.flags
 
-  // Expose internals for simulation
-  dataPtr.simPublic()
-  ram.simPublic()
-  tenBitUpper.simPublic()
-  addrByteIdx.simPublic()
-  hasStarted.simPublic()
-  inFrame.simPublic()
-  sdaOut.simPublic()
-  bitPos.simPublic()
-  inAck.simPublic()
-  rxAccum.simPublic()
-  wasAddressed.simPublic()
-  isRead.simPublic()
+  // (Internal observation taps are simPublic()'d from the TEST-SOURCE top
+  //  classes — pubSlave in I2cAutoSim/I2cAutoFuzz — so this file stays
+  //  free of spinal.core.sim.)
 }
