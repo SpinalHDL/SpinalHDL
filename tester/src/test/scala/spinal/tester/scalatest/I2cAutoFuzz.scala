@@ -21,7 +21,7 @@ class I2cAutoFuzz extends AnyFunSuite {
 
   class FuzzTop extends Component {
     val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, timerWidth = 12))
-    val slave  = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64))
+    val slave  = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64).toSeq))
 
     val sclWire = master.io.i2c.scl.write && slave.io.i2c.scl.read
     master.io.i2c.scl.read := sclWire

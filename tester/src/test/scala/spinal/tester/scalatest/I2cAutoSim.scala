@@ -54,7 +54,6 @@ class I2cAutoSim extends AnyFunSuite {
       timerWidth   = 12
     ))
     val slave  = new I2cAutoSlave(I2cAutoSlave.Config(
-      ramDepth     = cfg.slaveRamDepth,
       validAddrs   = cfg.slaveValidAddrs.getOrElse((0 until cfg.slaveRamDepth).toSeq),
       support10bit = slave10
     ))
@@ -70,6 +69,12 @@ class I2cAutoSim extends AnyFunSuite {
     val sdaForceLow = RegInit(False)
     sdaForceLow.allowUnsetRegToAvoidLatch()
     sdaForceLow.simPublic()
+    // TB lever: masks the slave's SDA contribution, modelling a receiver that
+    // releases the line during its own ACK slot (an open-drain-legal NACK; the
+    // wire itself must never be forced High — that is not physical).
+    val sdaKill = RegInit(False)
+    sdaKill.allowUnsetRegToAvoidLatch()
+    sdaKill.simPublic()
 
     // Test control: force SCL High for a single cycle to inject a glitch
     // spike (glitch-immunity tests). Momentary only — holding it would fight
@@ -88,7 +93,7 @@ class I2cAutoSim extends AnyFunSuite {
 
     // SDA: open-drain AND of both contributions; a competing master can only
     // pull the wire Low (forcing High is physically impossible on open-drain).
-    val sdaAnd = master.io.i2c.sda.write && slave.io.i2c.sda.read
+    val sdaAnd = master.io.i2c.sda.write && (slave.io.i2c.sda.read || sdaKill)
     val sdaWire = sdaAnd && !sdaForceLow
     sdaWire.simPublic()
     master.io.i2c.sda.read := sdaWire  // master sees combined (in)
@@ -225,8 +230,8 @@ class I2cAutoSim extends AnyFunSuite {
 
   class TestTopDualSlave(cfg: DualSlaveCfg = DualSlaveCfg()) extends Component {
     val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = cfg.support10bit, timerWidth = 12))
-    val slaveA = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = cfg.ramDepth, support10bit = cfg.support10bit))
-    val slaveB = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = cfg.ramDepth, support10bit = cfg.support10bit))
+    val slaveA = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until cfg.ramDepth), support10bit = cfg.support10bit))
+    val slaveB = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until cfg.ramDepth), support10bit = cfg.support10bit))
 
     // SCL: master drives both slaves
     master.io.i2c.scl.read := master.io.i2c.scl.write
@@ -297,8 +302,8 @@ class I2cAutoSim extends AnyFunSuite {
   class TestTopDualMaster extends Component {
     val masterA = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = false, timerWidth = 12))
     val masterB = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = false, timerWidth = 12))
-    val slaveA  = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64, support10bit = false))
-    val slaveB  = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64, support10bit = false))
+    val slaveA  = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64), support10bit = false))
+    val slaveB  = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64), support10bit = false))
 
     // SCL: open-drain AND of both master drivers (masters are the only SCL drivers)
     val sclWire = masterA.io.i2c.scl.write && masterB.io.i2c.scl.write
@@ -605,6 +610,42 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.snifByte1.toInt == 0xDE, f"snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0xDE (first data byte)")
       assertWireClean(dut, expectStarts = 1, expectStops = 1)
       assert(ram2 == 0xBE, f"RAM[2]=0x$ram2%02X, expected 0xBE")    }
+  }
+
+  test("I2cAuto: address-only write (byteCount=0) completes without a data phase") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      cd.waitActiveEdge(5)
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)                                // CFG_SAMPDIV
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
+      dut.regWriteSlave(0x04, 0)                                // PTR=0
+      dut.slave.ram.setBigInt(0, 0xEE)                          // sentinel: must survive
+
+      cd.waitActiveEdge(10)
+
+      // Zero-length write: the address phase IS the transaction (pointer-only
+      // access). Exercises the curLen===0 exit in BIT_HIGH.
+      dut.issueCmd(addr = 0x28, rw = false, byteCount = 0)
+
+      waitForIdle(dut)
+      cd.waitActiveEdge(5)
+
+      // Master: clean completion, no error (STATUS 0x18: err[5:3]).
+      val st = bmbRead(dut.masterRegBus, 0x18, cd)
+      assert(((st >> 3) & 0x7) == 0, f"STATUS=0x$st%02X, expected errCode=NONE after zero-length write")
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
+
+      // Wire: exactly the address byte, ACKed; no data byte follows.
+      assert(dut.snifByte0.toInt == 0x50, f"snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0x50 (addr 0x28, R/W=0)")
+      assert(!dut.snifAck0.toBoolean, "slave must ACK the address of a zero-length write")
+
+      // Slave: nothing stored, pointer untouched, rx-complete raised on STOP.
+      assert(dut.slave.ram.getBigInt(0).toInt == 0xEE, "zero-length write must not touch RAM")
+      assert(bmbRead(dut.slaveRegBus, 0x04, cd) == 0, "slave PTR must stay at 0")
+      waitForSlaveFlag(dut, 1, 1, cd)                           // rxComplete on addressed STOP
+    }
   }
 
   test("I2cAuto: basic read 3 bytes") {
@@ -1022,11 +1063,8 @@ class I2cAutoSim extends AnyFunSuite {
   }
 
   test("I2cAuto: data NACK mid-burst aborts transfer") {
-    // Use a slave with only 2 valid addresses; 3rd byte gets NACKed
-    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
-      .compile(new TestTop(TestTopCfg(slaveRamDepth = 4, slaveValidAddrs = Some(Seq(0, 1))))).doSim { dut =>
+    runSim { dut =>
       val cd = dut.clockDomain
-      cd.forkStimulus(10 ns)
 
       dut.cfgMasterTiming()
       dut.regWriteSlave(0x1C, 1)
@@ -1034,11 +1072,27 @@ class I2cAutoSim extends AnyFunSuite {
       dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
-      // Try to write 3 bytes to a 2-valid-addr slave: 3rd byte should be NACKed
+      // Try to write 3 bytes; the receiver refuses the 3rd. With the mapped
+      // address set every slot is writable, so the NACK is modelled externally:
+      // sdaKill masks the slave's SDA contribution from the 3rd byte's ACK
+      // rising edge onward. Slot count from transfer start: addr 9 + b1 9 +
+      // b2 8 = 26 rises precede the ACK-slot rise (the 36th); the master
+      // samples the filtered line at the END of that High phase, with ample
+      // filter-settle margin (tHigh = 20 cycles » 3-sample window).
       pushTx(dut, 0x11)
       pushTx(dut, 0x22)
       pushTx(dut, 0x33)
-      dut.issueCmd(addr = 0x28, rw = false, byteCount = 3)  // let the slave NACK the 3rd byte
+      val riseBase = dut.sclRiseCnt.toInt
+      dut.issueCmd(addr = 0x28, rw = false, byteCount = 3)  // let the receiver NACK the 3rd byte
+      var rises = 0
+      var spins = 0
+      while (rises < 36 && spins < 8000) {
+        cd.waitActiveEdge()
+        rises = dut.sclRiseCnt.toInt - riseBase
+        spins += 1
+      }
+      assert(rises >= 36, "transfer stalled before the 3rd-byte ACK slot")
+      dut.sdaKill #= true  // slave releases during its ACK slot -> master samples NACK
 
       waitForIdle(dut)
       cd.waitActiveEdge(20)
@@ -1050,6 +1104,40 @@ class I2cAutoSim extends AnyFunSuite {
       assert(r1 == 0x22, f"RAM[1]=0x$r1%02X, expected 0x22")
       val err = dut.master.status.errCode.toInt
       assert(err == 2, f"errCode=$err, expected 2 (data NACK)")
+    }
+  }
+
+  test("I2cAuto: sparse address set maps PTR/RAM_IND onto compact slots") {
+    runSimWithCfg(TestTopCfg(slaveValidAddrs = Some(Seq(0, 8)))) { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+
+      // Supported set {0, 8}: firmware-facing pointers speak BUS addresses;
+      // physically the two entries occupy slots 0 and 1 (packed, no holes).
+      // ptrW = log2Up(8 + 1) = 4, so bus address 4 is a representable gap.
+      dut.regWriteSlave(0x04, 8)  // accepted: maps to the second slot
+      cd.waitActiveEdge(10)
+      assert(bmbRead(dut.slaveRegBus, 0x04, cd) == 8, "PTR readback must echo the bus address")
+
+      // RAM_IND packs {data @ bits[ptrW+7:ptrW], addr @ bits[ptrW-1:0]}, ptrW = 4.
+      dut.regWriteSlave(0x08, (0xAB << 4) | 8)   // bus addr 8 -> second physical slot
+      cd.waitActiveEdge(10)
+      assert(dut.slave.ram.getBigInt(1).toInt == 0xAB, "RAM_IND addr 8 must land in slot 1")
+      dut.regWriteSlave(0x08, (0xCD << 4) | 4)   // bus addr 4: outside the set -> ignored
+      cd.waitActiveEdge(10)
+      assert(dut.slave.ram.getBigInt(1).toInt == 0xAB, "out-of-set RAM_IND must not write")
+
+      // Rejected PTR load: reported via STATUS.errNack + INT_FLAG[1]; pointer stays.
+      dut.regWriteSlave(0x04, 4)
+      cd.waitActiveEdge(10)
+      val status = bmbRead(dut.slaveRegBus, 0x0C, cd)
+      assert((status & 0x2) != 0, f"STATUS=$status, expected errNack (bit1) set")
+      val flags = bmbRead(dut.slaveRegBus, 0x14, cd)
+      assert((flags & 0x2) != 0, f"INT_FLAG=$flags, expected err flag (bit1) set")
+      assert(bmbRead(dut.slaveRegBus, 0x04, cd) == 8, "rejected load must leave the pointer at 8")
     }
   }
 

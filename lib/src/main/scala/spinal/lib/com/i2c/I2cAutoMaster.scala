@@ -311,11 +311,11 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     txFifo.io.push.valid   := io.tx.valid
     txFifo.io.push.payload := io.tx.payload
 
-    // txFifo pop side <> controller's pull seam (one byte per fire).
-    txFifo.io.pop <> engine.io.txData
+    // txFifo pop side feeds the controller's pull seam (one byte per fire).
+    engine.io.txData << txFifo.io.pop
 
-    // controller's push seam <> rxFifo push side.
-    engine.io.rxData <> rxFifo.io.push
+    // Controller's push seam feeds the rxFifo push side.
+    rxFifo.io.push << engine.io.rxData
 
     // RX_DATA pop-on-read (io.rx Stream, see driveFrom): ready is
     // combinationally from the register-bus read acceptance, so the

@@ -10,6 +10,10 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
   * Self-contained: does NOT use I2cSlave internally. Implements its own
   * START/STOP detection, bit counting, and SDA driving.
   *
+  * Config.validAddrs is the single source of truth for the address space: physical RAM depth
+  * equals the number of distinct entries and every supported address owns exactly one storage
+  * slot (compact mapping, no holes). Pointer values seen by firmware are always bus addresses.
+  *
   * The controller core is register-bus agnostic: it exposes the signals it
   * needs ([[I2cAutoSlaveIo]]) and leaves register-map instantiation to
   * [[I2cAutoSlave.driveFrom]], which binds a caller-supplied
@@ -17,17 +21,19 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
   * family whose slave factory extends BusSlaveFactory (Bmb, Apb3, TileLink, ...)
   * can serve the same register map.
   *
-  * Register map (byte addresses, 32-bit data width; addrW = 7 or 10, ramAddrW = log2Up(ramDepth)):
+  * Register map (byte addresses, 32-bit data width; addrW = 7 or 10, ptrW = Config.fwAddrW):
   *   0x00  ADDR        RW: {matchEn[addrW], addr[addrW-1:0]}
   *   0x04  PTR         RW: data pointer (write loads the HW counter; read returns the live value).
-  *                       Hardware-owned; wraps modulo ramDepth (ring buffer).
-  *   0x08  RAM_IND     W:  indirect RAM write: addr[ramAddrW-1:0] @ bits[ramAddrW-1:0],
-  *                         data[7:0] @ bits[ramAddrW+7:ramAddrW]
+  *                       Value space = the supported address set (Config.validAddrs). A load of an
+  *                       address outside the set is REJECTED (pointer unchanged) and sets
+  *                       STATUS.errNack + INT_FLAG[1]. Hardware-owned; walks the set in a ring.
+  *   0x08  RAM_IND     W:  indirect RAM write: addr @ bits[ptrW-1:0], data @ bits[ptrW+7:ptrW];
+  *                         an addr outside the supported set is ignored.
   *   0x0C  STATUS      R:  {errNack[1], inFrame[0]}
   *   0x10  INT_EN      RW: {errNack[1], rxComplete[0]}
   *   0x14  INT_FLAG    R:  {errNack[1], rxComplete[0]}  (W1C via INT_CLR)
   *                          rxComplete: set on STOP of a frame this slave was addressed in.
-  *                          errNack:    set on a sparse-RAM NACK (dataPtr outside validAddrs).
+  *                          errNack:    set when a PTR load names an address outside the supported set.
   *   0x18  INT_CLR     W:  W1C
   *   0x1C  CFG_SAMPDIV W:  sampling window divider
   *   0x20  CFG_TIMEOUT W:  reserved (declared, unused in RTL). SCL stretch is UNBOUNDED by
@@ -43,12 +49,17 @@ object I2cAutoSlave {
 
 
   case class Config(
-    ramDepth   : Int    = 64,
-    validAddrs : Seq[Int] = (0 until 64).toSeq,
+    validAddrs : Seq[Int] = (0 until 8).toSeq,   // supported address set; the single source of
+                                                // truth: RAM depth = distinct-entry count
     support10bit: Boolean = false,
     sampWinSize: Int    = 3,
     sampDivWidth: Int   = 10
-  )
+  ){
+    /** Number of storage slots = cardinality of the supported set. */
+    def ramDepth: Int = validAddrs.distinct.size
+    /** Width to express any supported (or firmware-proposed) address. */
+    def fwAddrW: Int = scala.math.max(1, log2Up(validAddrs.distinct.max + 1))
+  }
 
   def apply(c: Config = Config()): I2cAutoSlave = new I2cAutoSlave(c)
 
@@ -141,9 +152,9 @@ case class I2cAutoSlaveIo(c: I2cAutoSlave.Config) extends Bundle {
   val cfg = new Bundle {
     val slaveAddr   = in Bits((if (c.support10bit) 10 else 7) bits)
     val addrMatchEn = in Bool()
-    val ptrVal      = in UInt(log2Up(c.ramDepth) bits)  // PTR load value
+    val ptrVal      = in UInt(c.fwAddrW bits)  // PTR load value (bus-space address)
     val ptrLoad     = in Bool()                          // one-cycle load pulse
-    val ramWrAddr   = in UInt(log2Up(c.ramDepth) bits)
+    val ramWrAddr   = in UInt(c.fwAddrW bits)            // RAM_IND address (bus-space)
     val ramWrData   = in Bits(8 bits)
     val ramWrValid  = in Bool()                          // one-cycle RAM write pulse
     val sampDiv     = in UInt(c.sampDivWidth bits)
@@ -160,7 +171,7 @@ case class I2cAutoSlaveIo(c: I2cAutoSlave.Config) extends Bundle {
   val status = new Bundle {
     val inFrame    = out Bool()
     val errNack    = out Bool()
-    val ptr        = out UInt(log2Up(c.ramDepth) bits)  // live pointer readback
+    val ptr        = out UInt(c.fwAddrW bits)  // live pointer readback (bus-space address)
     val stretchClr = out Bool()                          // one-cycle pulse on STOP (releases stretch)
   }
 
@@ -175,7 +186,36 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   val io = I2cAutoSlaveIo(c)
 
-  val ramAddrW = log2Up(c.ramDepth)
+  val ramAddrW = log2Up(c.ramDepth) // compact slot index width (distinct entries packed)
+
+  require(c.sampWinSize >= 2,
+    s"I2cAutoSlave.Config.sampWinSize must be >= 2 (got ${c.sampWinSize}): the glitch-filter " +
+    "history window needs at least 2 samples")
+  require(c.validAddrs.forall(_ >= 0),
+    "I2cAutoSlave.Config.validAddrs must contain only non-negative addresses")
+  require(c.ramDepth >= 2,
+    s"I2cAutoSlave.Config.validAddrs must contain at least 2 distinct addresses (got ${c.ramDepth})")
+
+  // Address set <-> compact storage slots: slot k backs bus address addrTable(k). Firmware
+  // only ever exchanges bus addresses (PTR / RAM_IND); the slot numbering stays internal.
+  val addrTable: Seq[Int] = c.validAddrs.distinct.sorted
+
+  private def addrHit(a: UInt): Bool =
+    addrTable.map(x => a === U(x, c.fwAddrW bits)).reduce(_ || _)
+
+  private def addrToSlot(a: UInt): UInt =
+    addrTable.zipWithIndex.foldRight(U(0, ramAddrW bits)) {
+      case ((busAddr, slot), acc) => Mux(a === U(busAddr, c.fwAddrW bits), U(slot, ramAddrW bits), acc)
+    }
+
+  private def slotToAddr(s: UInt): UInt =
+    addrTable.zipWithIndex.foldRight(U(addrTable.last, c.fwAddrW bits)) {
+      case ((busAddr, slot), acc) => Mux(s === U(slot, ramAddrW bits), U(busAddr, c.fwAddrW bits), acc)
+    }
+
+  /** Ring successor over slots; explicit wrap so non-power-of-two set sizes stay correct. */
+  private def nextSlot(p: UInt): UInt =
+    Mux(p === U(c.ramDepth - 1, ramAddrW bits), U(0, ramAddrW bits), p + U(1))
 
   // === Input conditioning (#5, #6, #16) ===
   val filterTick = new Area {
@@ -243,9 +283,11 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // shifted out, which is acceptable for a firmware-managed data buffer.
   val ram = Mem(Bits(8 bits), c.ramDepth)
 
-  // Indirect RAM write (one-cycle pulse from the RAM_IND register)
-  when(io.cfg.ramWrValid) {
-    ram.write(io.cfg.ramWrAddr, io.cfg.ramWrData)
+  // Indirect RAM write (one-cycle pulse from the RAM_IND register). Takes a bus
+  // address; one outside the supported set is silently ignored (firmware mistake,
+  // not a bus event).
+  when(io.cfg.ramWrValid && addrHit(io.cfg.ramWrAddr)) {
+    ram.write(addrToSlot(io.cfg.ramWrAddr), io.cfg.ramWrData)
   }
 
   // === Frame state ===
@@ -285,19 +327,11 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   }
   io.irq := (io.intr.en & intr.flags).orR
 
-  // Sticky error flag: set on a sparse-RAM NACK, cleared on the next START
+  // Sticky error flag: set when a PTR load names an address outside the supported
+  // set, cleared on the next START
   // or STOP. Assigned inside conditional branches only, hence the tag
   // (deliberate hold-across-other-cycles semantics, not a latch hole).
   val statusErrNack = RegInit(False).allowUnsetRegToAvoidLatch
-
-  // Helper: is the current pointer address valid?
-  def ptrValid(p: UInt): Bool = {
-    if (c.validAddrs.size == c.ramDepth) True
-    else {
-      val terms = c.validAddrs.map(idx => (p === U(idx, ramAddrW bits)))
-      if (terms.isEmpty) False else terms.reduce(_ || _)
-    }
-  }
 
   // === Main state machine (event-driven on filtered edges) ===
 
@@ -379,7 +413,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
         // phase, which also increments unconditionally. Incrementing only on
         // ACK made a following write phase (read->write composite) start one
         // slot early after a NACKed last read byte.
-        dataPtr := dataPtr + U(1)
+        dataPtr := nextSlot(dataPtr)
         when(sdaFilt) {
           // High = master NACKed: release and stop driving data. The master
           // will issue STOP or RESTART; we must not hold SDA Low (would mask
@@ -449,7 +483,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             sdaOut     := !(matchNow && io.cfg.addrMatchEn)
             // Silent NACK on a non-addressed frame (consistent with the first
             // 10-bit header path): avoids interrupt storms / sticky errNack on
-            // multi-slave buses. Genuine errors (sparse-RAM NACK) still report.
+            // multi-slave buses. Genuine errors (rejected PTR loads) still report.
           }
         } else {
           // 7-bit: single address byte
@@ -462,7 +496,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
           bitPos     := U(0)
           sdaOut     := !(matchNow && io.cfg.addrMatchEn)
           // Silent NACK on a non-addressed frame (avoids interrupt storms on
-          // multi-slave buses). Genuine errors (sparse-RAM NACK) still report.
+          // multi-slave buses). Genuine errors (rejected PTR loads) still report.
         }
       } otherwise {
         // Between address bits: release SDA (master is driving data)
@@ -475,18 +509,13 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
           // Write: store byte, advance pointer, prepare ACK.
           // Multi-slave isolation: only the addressed slave drives the ACK;
           // non-addressed slaves release SDA (cannot mask the addressed
-          // slave's NACK on the shared bus).
+          // slave's NACK on the shared bus). Every slot of the mapped set is
+          // writable, so an addressed slave always ACKs data bytes; a data NACK
+          // on the wire can only come from elsewhere on the bus.
           when(wasAddressed) {
-            when(ptrValid(dataPtr)) {
-              ram.write(dataPtr, rxAccum)
-            } otherwise {
-              // Sparse-RAM NACK: report it like any other NACK (STATUS.errNack
-              // + INT_FLAG[1]); previously the NACK was driven but silent.
-              statusErrNack := True
-              intr.flags(1)     := True
-            }
-            dataPtr := dataPtr + U(1)
-            sdaOut  := !ptrValid(dataPtr)
+            ram.write(dataPtr, rxAccum)
+            dataPtr := nextSlot(dataPtr)
+            sdaOut  := False
           } otherwise {
             sdaOut := True
           }
@@ -518,7 +547,14 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // Firmware PTR load: registered after the HW increment above so it wins in
   // the same cycle (matches the legacy register-write precedence).
   when(io.cfg.ptrLoad) {
-    dataPtr := io.cfg.ptrVal
+    when(addrHit(io.cfg.ptrVal)) {
+      dataPtr := addrToSlot(io.cfg.ptrVal)
+    } otherwise {
+      // Rejected load: the address is outside the supported set. Reported like every
+      // other error (STATUS.errNack + INT_FLAG[1]); the pointer stays where it is.
+      statusErrNack := True
+      intr.flags(1) := True
+    }
   }
 
   // Drive physical SDA output (what this slave contributes to the wire)
@@ -552,7 +588,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // Forward status to the io
   io.status.inFrame := inFrame
   io.status.errNack := statusErrNack
-  io.status.ptr     := dataPtr
+  io.status.ptr     := slotToAddr(dataPtr)
   io.intr.flags        := intr.flags
 
   // (Internal observation taps are simPublic()'d from the TEST-SOURCE top

@@ -21,10 +21,7 @@ class I2cAutoDemo extends Component {
     timerWidth = 12
   ))
 
-  val slaveCtrl = new I2cAutoSlave(I2cAutoSlave.Config(
-    ramDepth   = 64,
-    validAddrs = (0 until 64).toSeq
-  ))
+  val slaveCtrl = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64).toSeq))
 
   val io = new Bundle {
     val i2cMaster = spinal.lib.master(I2c())
@@ -65,11 +62,7 @@ class I2cAutoDemo10bit extends Component {
     timerWidth   = 12
   ))
 
-  val slaveCtrl = new I2cAutoSlave(I2cAutoSlave.Config(
-    ramDepth     = 64,
-    validAddrs   = (0 until 64).toSeq,
-    support10bit = true
-  ))
+  val slaveCtrl = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64).toSeq, support10bit = true))
 
   val io = new Bundle {
     val i2cMaster  = spinal.lib.master(I2c())
