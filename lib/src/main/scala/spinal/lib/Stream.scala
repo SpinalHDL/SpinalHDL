@@ -852,8 +852,7 @@ object StreamArbiter {
   /**
    * lock/unlock the output based on a user-defined function.
    */
-  object SetLock extends LockPolicy {
-    var logic: (StreamArbiter[_ <: Data]) => Area = _
+  case class SetLock(logic: (StreamArbiter[_ <: Data]) => Area) extends LockPolicy {
     override def apply(core: StreamArbiter[_ <: Data]) = new Area {
       logic(core).setWeakName("setLock")
     }
@@ -862,8 +861,7 @@ object StreamArbiter {
   /**
    * Unlock the output when output payload meets a user-defined criteria.
    */
-  object LambdaLock extends LockPolicy {
-    var unlock: Stream[_ <: Data] => Bool = _
+  case class LambdaLock(unlock: Stream[_ <: Data] => Bool) extends LockPolicy {
     override def apply(core: StreamArbiter[_ <: Data]) = new Area {
       import core._
       if(lockFlagEnable) {
@@ -1019,8 +1017,7 @@ class StreamArbiterFactory {
   /** Configure the builder so the port selection could change based on user-defined logic.
    */
   def setLock(body : (StreamArbiter[_ <: Data]) => Area) : this.type = {
-    SetLock.logic = body
-    lockPolicy = SetLock
+    lockPolicy = SetLock(body)
     this
   }
 
@@ -1053,8 +1050,7 @@ class StreamArbiterFactory {
    *
    */
   def lambdaLock[T <: Data](unlock: Stream[T] => Bool) : this.type = {
-    LambdaLock.unlock = unlock.asInstanceOf[Stream[_ <: Data] => Bool]
-    lockPolicy = LambdaLock
+    lockPolicy = LambdaLock(unlock.asInstanceOf[Stream[_ <: Data] => Bool])
     this
   }
 }
