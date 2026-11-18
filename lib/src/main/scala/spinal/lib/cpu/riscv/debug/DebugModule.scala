@@ -327,12 +327,33 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       }
     }
 
+    val abstractcs = new Area{
+      val dataCount = factory.read(U(p.datacount, 4 bits), 0x16, 0)
+      val cmdErr = factory.createReadOnly(DebugModuleCmdErr(), 0x16, 8) init(DebugModuleCmdErr.NONE)
+      val busy = factory.createReadOnly(Bool(), 0x16, 12) init(False)
+      val progBufSize = factory.read(U(p.progBufSize, 5 bits), 0x16, 24)
+
+      val noError = cmdErr === DebugModuleCmdErr.NONE
+      // Only an idle abstractcs write may clear the sticky error.
+      factory.onWrite(0x16) {
+        when(!busy) {
+          cmdErr.assignFromBits(cmdErr.asBits & ~io.ctrl.cmd.data(10 downto 8))
+        }
+      }
+      val error = DebugModuleCmdErr()
+      error := DebugModuleCmdErr.NONE
+    }
+
     val progbufX = new Area{
-      val trigged = io.ctrl.cmd.valid && io.ctrl.cmd.write && (io.ctrl.cmd.address & 0x70) === 0x20
+      val trigged = io.ctrl.cmd.valid && io.ctrl.cmd.address >= 0x20 && io.ctrl.cmd.address < 0x20 + p.progBufSize
       val mem = Mem.fill(p.progBufSize)(Bits(32 bits))
       when(trigged){
         factory.cmdToRsp.error := False
-        mem.write(io.ctrl.cmd.address.resized, io.ctrl.cmd.data)
+        // Reads are supported as zero, but still count as accesses for busy/autoexec.
+        factory.cmdToRsp.data := 0
+        when(io.ctrl.cmd.write && !abstractcs.busy) {
+          mem.write(io.ctrl.cmd.address.resized, io.ctrl.cmd.data)
+        }
       }
     }
 
@@ -349,7 +370,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       when(io.ctrl.cmd.valid && io.ctrl.cmd.address >= 0x04 &&  io.ctrl.cmd.address < 0x04 + p.datacount){
         trigged := True
 
-        toHarts.valid   setWhen(io.ctrl.cmd.write)
+        toHarts.valid   setWhen(io.ctrl.cmd.write && !abstractcs.busy)
         toHarts.op      := DebugDmToHartOp.DATA
         toHarts.address := cmdAddress.resized
         toHarts.data    := io.ctrl.cmd.data
@@ -359,19 +380,16 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       }
     }
 
-    val abstractcs = new Area{
-      val dataCount = factory.read(U(p.datacount, 4 bits), 0x16, 0)
-      val cmdErr = factory.createReadAndClearOnSet(DebugModuleCmdErr(), 0x16, 8) init(DebugModuleCmdErr.NONE)
-      val busy = factory.createReadOnly(Bool(), 0x16, 12) init(False)
-      val progBufSize = factory.read(U(p.progBufSize, 5 bits), 0x16, 24)
-
-      val noError = cmdErr === DebugModuleCmdErr.NONE
-      toHarts.valid clearWhen(busy)
-    }
-
     val abstractAuto = new Area{
-      val autoexecdata = factory.createReadAndWrite(Bits(p.datacount bits), 0x18, 0) init(0)
-      val autoexecProgbuf = factory.createReadAndWrite(Bits(p.progBufSize bits), 0x18, 16) init(0)
+      val autoexecdata = factory.createReadOnly(Bits(p.datacount bits), 0x18, 0) init(0)
+      val autoexecProgbuf = factory.createReadOnly(Bits(p.progBufSize bits), 0x18, 16) init(0)
+
+      factory.onWrite(0x18) {
+        when(!abstractcs.busy) {
+          autoexecdata := io.ctrl.cmd.data(0, p.datacount bits)
+          autoexecProgbuf := io.ctrl.cmd.data(16, p.progBufSize bits)
+        }
+      }
 
       val trigger = progbufX.trigged && autoexecProgbuf(io.ctrl.cmd.address.resized) || dataX.trigged && autoexecdata(dataX.cmdAddress.resized)
     }
@@ -384,7 +402,12 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       setEntry(IDLE)
       val executionCounter = Reg(UInt(log2Up(p.progBufSize) bits))
       val commandRequest = factory.isWriting(0x17)
-      val data = factory.createWriteOnly(Bits(32 bits), 0x17)
+      val data = Reg(Bits(32 bits))
+      factory.onWrite(0x17) {
+        when(!abstractcs.busy && abstractcs.noError) {
+          data := io.ctrl.cmd.data
+        }
+      }
       val access = new Area{
         case class Args() extends Bundle{
           val regno = UInt(16 bits)
@@ -401,14 +424,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       }
 
       val request = commandRequest || abstractAuto.trigger
-      when(request && abstractcs.busy && abstractcs.noError){
-        abstractcs.cmdErr := DebugModuleCmdErr.BUSY
-      }
       when(io.harts.map(e => e.exception).orR){
-        abstractcs.cmdErr := DebugModuleCmdErr.EXCEPTION
-      }
-      when(abstractcs.busy && (progbufX.trigged || dataX.trigged) && abstractcs.noError){
-        abstractcs.cmdErr := DebugModuleCmdErr.BUSY
+        abstractcs.error := DebugModuleCmdErr.EXCEPTION
       }
 
       IDLE.onEntry(
@@ -420,7 +437,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
           // hartSel.resized aliases a nonexistent hart onto an existing one, while toHarts is only
           // delivered to the hart matching the full hartSel, so the command would never complete.
           when(!dmcontrol.hartSelExists || !io.harts.map(_.halted).read(dmcontrol.hartSel.resized)){
-            abstractcs.cmdErr := DebugModuleCmdErr.HALT_RESUME
+            abstractcs.error := DebugModuleCmdErr.HALT_RESUME
           } otherwise {
             selected.hart := dmcontrol.hartSel.resized
             abstractcs.busy := True
@@ -433,7 +450,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         switch(data(31 downto 24)) {
           is(0) { //access register
             when(access.notSupported) {
-              abstractcs.cmdErr := DebugModuleCmdErr.NOT_SUPPORTED
+              abstractcs.error := DebugModuleCmdErr.NOT_SUPPORTED
             } otherwise {
               when(access.args.postExec){
                 goto(POST_EXEC)
@@ -458,7 +475,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
             }
           }
           default{
-            abstractcs.cmdErr := DebugModuleCmdErr.NOT_SUPPORTED
+            abstractcs.error := DebugModuleCmdErr.NOT_SUPPORTED
           }
         }
       }
@@ -516,6 +533,19 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         when(selected.redo || selected.commit && executionCounter =/= p.progBufSize - 1){
           goto(POST_EXEC)
         }
+      }
+    }
+    // A busy access wins over an error from the command on the same cycle, and
+    // remains sticky while that command runs to completion. cmderr is only valid
+    // to the debugger once busy is low (Debug Specification 1.0, abstractcs).
+    val busyAccess = abstractcs.busy && (
+      factory.isWriting(0x17) || factory.isWriting(0x16) || factory.isWriting(0x18) ||
+      progbufX.trigged || dataX.trigged)
+    when(abstractcs.noError) {
+      when(busyAccess) {
+        abstractcs.cmdErr := DebugModuleCmdErr.BUSY
+      } elsewhen(abstractcs.error =/= DebugModuleCmdErr.NONE) {
+        abstractcs.cmdErr := abstractcs.error
       }
     }
   }
