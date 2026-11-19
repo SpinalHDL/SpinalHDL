@@ -17,9 +17,11 @@ case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSla
   val cke = Bits(config.chipSelectNumber * config.frequencyRatio bits)
   val odt = config.useOdt generate Bits(config.chipSelectNumber * config.frequencyRatio bits)
   val resetN = config.useResetN generate Bits(config.chipSelectNumber * config.frequencyRatio bits)
+  // DDR4 CA parity (JESD79-4B §4.17): one even-parity bit per phase, driven with the command
+  val parity = config.useCaParity generate Bits(config.frequencyRatio bits)
 
   override def asMaster(): Unit = {
-    out(address, bank, rasN, casN, weN, csN, actN, bg, cid, cke, odt, resetN)
+    out(address, bank, rasN, casN, weN, csN, actN, bg, cid, cke, odt, resetN, parity)
   }
 }
 
@@ -29,6 +31,8 @@ case class DfiWr(config: DfiConfig) extends Bundle {
   val wrdataMask = Bits(config.dataWidth / 8 bits)
   // config.dramDataSlice must >= 8, or else config.dataWidth / 8 / config.dataEnableWidth < 1
   val wrdataCsN = config.useWrdataCsN generate Bits(config.chipSelectNumber bits)
+  // DDR4 DBI (JESD79-4B §4.11), active low: 0 = the byte on the wire is inverted
+  val wrdataDbiN = config.useWrDbi generate Bits(config.dbiWidth bits)
 }
 
 case class DfiWriteInterface(config: DfiConfig) extends Bundle with IMasterSlave {
@@ -60,8 +64,8 @@ case class DfiReadInterface(config: DfiConfig) extends Bundle with IMasterSlave 
 }
 
 case class DfiUpdateInterface(config: DfiConfig) extends Bundle with IMasterSlave {
-  val ctrlupdAck = config.useCtrlupdReq generate Bool()
-  val ctrlupdReq = config.useCtrlupdAck generate Bool()
+  val ctrlupdAck = config.useCtrlupdAck generate Bool()
+  val ctrlupdReq = config.useCtrlupdReq generate Bool()
   val phyupdAck = config.usePhyupdAck generate Bool()
   val phyupdReq = config.usePhyupdReq generate Bool()
   val phyupdType = config.usePhyupdType generate Bits(2 bits)
@@ -124,7 +128,7 @@ case class DfiCATrainingInterface(config: DfiConfig) extends Bundle with IMaster
   }
 }
 
-case class DfiLevelingTraingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+case class DfiLevelingTrainingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val lvlPattern = config.useLvlPattern generate Bits(4 * config.readTrainingPhyIFWidth bits)
   val lvlPeriodic = config.useLvlPeriodic generate Bits(config.levelingPhyIFWidth bits)
   override def asMaster(): Unit = {
@@ -132,7 +136,7 @@ case class DfiLevelingTraingInterface(config: DfiConfig) extends Bundle with IMa
   }
 }
 
-case class DfiPhyRequesetedTrainingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+case class DfiPhyRequestedTrainingInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val phylvlReqCsN = config.usePhylvlReqCsN generate Bits(config.rankWidth bits)
   val phylvlAckCsN = config.usePhylvlAckCsN generate Bits(config.chipSelectNumber bits)
 
@@ -155,9 +159,42 @@ case class DfiLowPowerControlInterface(config: DfiConfig) extends Bundle with IM
 
 case class DfiErrorInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val error = config.useError generate Bits(config.errorNumber bits)
-  val error_info = config.useErrorInfo generate Bits(config.errorNumber * 4 bits)
+  val errorInfo = config.useErrorInfo generate Bits(config.errorNumber * 4 bits)
   override def asMaster(): Unit = {
-    in(error, error_info)
+    in(error, errorInfo)
+  }
+}
+
+/** DFI 6.0.1 Table 12 MC-to-PHY message interface (all four wires Optional on both sides).
+  * MC perspective: dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req are driven by the MC,
+  * dfi_ctrlmsg_ack comes back from the PHY. The bundle carries all four wires; it is the
+  * Dfi bundle that gates the member itself on useCtrlMsg (needed so `alignment.io.output
+  * <> io.dfi` never auto-connects these MC-side-driven wires from the un-driven Alignment
+  * copy — that produced ASSIGNMENT OVERLAP with the arbiter wiring in DfiController). */
+case class DfiCtrlMsgInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+  val ctrlmsg = Bits(8 bits)
+  val ctrlmsgData = Bits(16 bits)
+  val ctrlmsgReq = Bool()
+  val ctrlmsgAck = Bool()
+  override def asMaster(): Unit = {
+    out(ctrlmsg, ctrlmsgData, ctrlmsgReq)
+    in(ctrlmsgAck)
+  }
+}
+
+/** P3 legacy (DDR2/DDR3) write-leveling MC-side handshake wires. Separate top-level port (NOT
+  * a Dfi member) for the same reason as DfiCtrlMsgInterface: MC-driven wires inside the Dfi
+  * bundle get auto-connected by the Dfi<>Dfi zip in DfiController (alignment.io.output <>
+  * io.dfi) — ASSIGNMENT OVERLAP once the MC drives them too, silent NO DRIVER otherwise.
+  * wrLvlEn = dfi_wrlvl_en (the wrLvlStart level); wrlvlResp = dfi_wrlvl_resp (the wrLvlDone
+  * source). The full DFI write-training signal family stays declared in
+  * DfiWriteTrainingInterface; these are only the two wires the MC handshake touches. */
+case class DfiLegacyWrLvlInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+  val wrLvlEn = Bool()
+  val wrlvlResp = Bits(config.writeLevelingResponseWidth bits)
+  override def asMaster(): Unit = {
+    out(wrLvlEn)
+    in(wrlvlResp)
   }
 }
 
@@ -165,27 +202,33 @@ case class Dfi(config: DfiConfig) extends Bundle with IMasterSlave {
   val control = DfiControlInterface(config)
   val write = DfiWriteInterface(config)
   val read = DfiReadInterface(config)
-  val updata = DfiUpdateInterface(config)
+  val update = DfiUpdateInterface(config)
   val status = DfiStatusInterface(config)
   val rdTraining = DfiReadTrainingInterface(config)
   val wrTraining = DfiWriteTrainingInterface(config)
   val caTraining = DfiCATrainingInterface(config)
-  val levelingTraing = DfiLevelingTraingInterface(config)
-  val phyRequesetedTraining = DfiPhyRequesetedTrainingInterface(config)
+  val levelingTraining = DfiLevelingTrainingInterface(config)
+  val phyRequestedTraining = DfiPhyRequestedTrainingInterface(config)
   val lowPowerControl = DfiLowPowerControlInterface(config)
   val error = DfiErrorInterface(config)
+  // NOTE: the ctrlmsg channel is deliberately NOT a Dfi member. A bundle member here gets
+  // auto-connected by any Dfi<>Dfi zip (alignment.io.output <> io.dfi in DfiController),
+  // which either double-drives the MC-side wires from Alignment's un-driven copy
+  // (ASSIGNMENT OVERLAP) or — once Alignment drives its own copy — silently fails to
+  // propagate through the zip (NO DRIVER at the top level). It is a separate top-level
+  // port of DfiController instead (io.dfiCtrlMsg), driven only by CtrlMsgArbiter.
   override def asMaster(): Unit = {
     master(
       control,
       read,
       status,
       write,
-      updata,
+      update,
       rdTraining,
       wrTraining,
       caTraining,
-      levelingTraing,
-      phyRequesetedTraining,
+      levelingTraining,
+      phyRequestedTraining,
       lowPowerControl,
       error
     )
