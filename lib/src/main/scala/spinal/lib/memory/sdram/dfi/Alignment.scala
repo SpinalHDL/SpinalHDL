@@ -27,4 +27,9 @@ case class Alignment(config: DfiConfig) extends Component {
   rdAlignment.io.inputEn <> io.input.rdEn
   rdAlignment.io.output <> io.output.read
   rdAlignment.io.phaseClear := False
+
+  // dfi_parity_in (DFI status): MC-side CA-parity-enabled indication. This controller does not
+  // implement the PHY parity-reporting handshake, so it idles at 0 (DDR4 CA parity itself is
+  // generated in CAAlignment on dfi_parity, not here).
+  if (config.useParityIn) io.output.status.parityIn.clearAll()
 }
