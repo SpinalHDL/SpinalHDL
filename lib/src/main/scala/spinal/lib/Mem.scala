@@ -97,10 +97,11 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   /**
     * Create a write port in form of a `Flow`.
     */
-  def writePort() : Flow[MemWriteCmd[T]] = {
-    val ret = Flow(MemWriteCmd(mem))
+  def writePort() : Flow[MemWriteCmd[T]] = writePort(-1)
+  def writePort(maskWidth : Int) : Flow[MemWriteCmd[T]] = {
+    val ret = Flow(MemWriteCmd(mem, maskWidth))
     when(ret.valid){
-      mem.write(ret.address,ret.data)
+      mem.write(ret.address, ret.data, mask = ret.mask)
     }
     ret
   }
