@@ -4,6 +4,79 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
+case class Ddr4ModeRegs(
+    mr0: Int = 0x130, // BL8 fixed(A1:A0=00), sequential(A3=0), CL=15 (A12,A6,A5,A4,A2=0,0,1,1,0), DLL reset (A8=1)
+    mr1: Int = 0x000, // output enabled, no write leveling, push-pull, AL=0, DLL enable (A0=1 set by init? see note)
+    mr2: Int = 0x000, // CWL=5, no AL
+    mr3: Int = 0x000, // push-pull CA, normal drive strength
+    mr4: Int = 0x000, // normal self-refresh temp range, ASR off
+    mr5: Int = 0x000, // no CA parity, PPB off
+    mr6: Int = 0x000 // RTT_NOM off, srf not enabled
+)
+
+/** DDR4 power-on init sequence (simplified, JESD79-4B 4.9.1 / Figure 6):
+  * xprWait -> MRS MR3, MR6, MR5, MR4, MR2, MR1, MR0 (tMRD apart) -> ZQCL -> zqInitCycles -> done.
+  * Emits Ddr4InitOp pulses consumed by MakeTask onto the task port. */
+case class Ddr4Init(
+    modeRegs: Ddr4ModeRegs,
+    tMrdCycles: Int = 2,
+    zqInitCycles: Int = 256,
+    xprWaitCycles: Int = 8
+) extends Component {
+  val io = new Bundle {
+    val initOp = master(Flow(Ddr4InitOp()))
+    val busy = out Bool ()
+    val done = out Bool ()
+  }
+  val orderList = List(3, 6, 5, 4, 2, 1, 0) // spec order; MR0 last with DLL reset bit set
+  // Both Vecs are 16-entry and every index is 4-bit wide: SpinalHDL checks the index
+  // width against log2Up(Vec size) at elaboration, so widths must line up exactly
+  // (step: 4 bits -> order; order entries: 4 bits -> opCodes).
+  val order = Vec.tabulate(16)(i => U(if (i < orderList.length) orderList(i) else 0, 4 bits))
+  val opCodeList = List(modeRegs.mr0, modeRegs.mr1, modeRegs.mr2, modeRegs.mr3, modeRegs.mr4, modeRegs.mr5, modeRegs.mr6)
+  val opCodes = Vec.tabulate(16)(i => U(if (i < opCodeList.length) opCodeList(i) else 0, 16 bits))
+  val step = Reg(UInt(4 bits)) init (0)
+  val timer = Reg(UInt(16 bits)) init (xprWaitCycles)
+  val doneReg = RegInit(False)
+
+  io.busy := !doneReg
+  io.done := doneReg
+  io.initOp.valid := False
+  io.initOp.mrs := False
+  io.initOp.zq := False
+  io.initOp.mrIndex := 0
+  io.initOp.opCode := 0
+
+  when(!doneReg) {
+    when(timer =/= 0) {
+      timer := timer - 1
+    } otherwise {
+      when(step < orderList.length) {
+        io.initOp.valid := True
+        io.initOp.mrs := True
+        io.initOp.mrIndex := order(step).resized // 4->3 bits: values are 0..7 by construction
+        io.initOp.opCode := opCodes(order(step))
+        step := step + 1
+        timer := tMrdCycles
+      } elsewhen (step === orderList.length) {
+        io.initOp.valid := True
+        io.initOp.zq := True
+        step := step + 1
+        timer := zqInitCycles
+      } otherwise {
+        doneReg := True
+      }
+    }
+  }
+}
+
+case class Ddr4InitOp() extends Bundle {
+  val mrs = Bool()
+  val zq = Bool()
+  val mrIndex = UInt(3 bits)
+  val opCode = UInt(16 bits)
+}
+
 case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
   val io = new Bundle {
     val cmd = slave(Stream(TaskWrRdCmd(taskConfig, dfiConfig)))
@@ -14,6 +87,14 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   val timeConfig = TaskTimingConfig(dfiConfig)
   val readyForRefresh = True
   val sdram = dfiConfig.sdram
+
+  val ddr4Init = (sdram.generation == SdramGeneration.DDR4) generate Ddr4Init(
+    modeRegs = Ddr4ModeRegs(),
+    tMrdCycles = 4,
+    zqInitCycles = 512,
+    xprWaitCycles = 32
+  )
+  def initDone: Bool = if (ddr4Init != null) ddr4Init.io.done else True
   val banksRow = Mem(UInt(dfiConfig.sdram.rowWidth bits), sdram.bankCount)
   val CCD =
     (dfiConfig.beatCount > 1) generate timing(
@@ -22,8 +103,62 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       log2Up(dfiConfig.beatCount)
     )
   val RFC = timing(io.output.refresh, timeConfig.RFC, taskConfig.taskParameter.timingWidth + 3)
-  val RRD = timing(io.output.active, timeConfig.RRD)
-  val WTR = timing(io.output.write, timeConfig.WTR)
+  // Bank-group-aware ACT-to-ACT spacing.
+  // Legacy (DDR2/DDR3): a single global RRD timer, exactly as before.
+  // DDR4: both timers reload on EVERY ACT. The candidate's relation to the last ACT's bank
+  // group selects which gates it: same group -> tRRD_L, different group -> tRRD_S.
+  // (tRRD_L/S are both measured from the previous ACT, so both timers must be live after it.)
+  val RRD_busy: Bool = if (dfiConfig.sdram.generation == SdramGeneration.DDR4) {
+    new Area {
+      val lastBg = Reg(Bits(dfiConfig.bankGroupWidth bits)) init (B(0, dfiConfig.bankGroupWidth bits))
+      val lastBgValid = RegInit(False)
+      when(io.output.active) {
+        lastBg := io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+        lastBgValid := True
+      }
+      val sameGroup = lastBg === io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+      val timerL = timing(io.output.active, timeConfig.RRD)
+      val timerS = timing(io.output.active, timeConfig.RRD_S)
+      val out = lastBgValid && Mux(sameGroup, timerL.busy, timerS.busy)
+    }.out
+  } else {
+    timing(io.output.active, timeConfig.RRD).busy
+  }
+  // Bank-group-aware WRITE-to-READ turnaround.
+  // Legacy: one global WTR timer (unchanged). DDR4: both timers reload on every write;
+  // a read in the same bank group as the last write waits tWTR (L), a different group tWTR_S.
+  val WTR_busy: Bool = if (dfiConfig.sdram.generation == SdramGeneration.DDR4) {
+    new Area {
+      val lastBg = Reg(Bits(dfiConfig.bankGroupWidth bits)) init (B(0, dfiConfig.bankGroupWidth bits))
+      val lastBgValid = RegInit(False)
+      when(io.output.write) {
+        lastBg := io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+        lastBgValid := True
+      }
+      val sameGroup = lastBg === io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+      val timerL = timing(io.output.write, timeConfig.WTR)
+      val timerS = timing(io.output.write, timeConfig.WTR_S)
+      val out = lastBgValid && Mux(sameGroup, timerL.busy, timerS.busy)
+    }.out
+  } else {
+    timing(io.output.write, timeConfig.WTR).busy
+  }
+  // Bank-group-aware CAS-to-CAS (tCCD) between column commands.
+  // Legacy: no extra gate (the station's 1-cycle block already provides tCCD_S-equivalent spacing).
+  // DDR4: a column command into the SAME bank group as the previous column command must wait
+  // tCCD_L (4nCK = 2 MC cycles at fr2); cross-group keeps the existing 1-cycle spacing (tCCD_S).
+  val CCD_BG = if (dfiConfig.sdram.generation == SdramGeneration.DDR4) new Area {
+    val lastBg = Reg(Bits(dfiConfig.bankGroupWidth bits)) init (B(0, dfiConfig.bankGroupWidth bits))
+    val lastValid = RegInit(False)
+    when(io.output.read || io.output.write) {
+      lastBg := io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+      lastValid := True
+    }
+    val sameGroup = lastBg === io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+    val timerL = timing(io.output.read || io.output.write, timeConfig.CCD_L)
+    val busy = lastValid && sameGroup && timerL.busy
+  } else null
+  def ccdBgBusy: Bool = if (CCD_BG != null) CCD_BG.busy else False
   val RTW = timing(io.output.read, timeConfig.RTW)
   val RP = timing(io.output.prechargeAll, timeConfig.RP + 1)
   val FAW = sdram.generation.FAW generate new Area { // Can be optimized
@@ -66,38 +201,42 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val addrMapping = new Area {
       val rbcAddress = address.getRBCAddress(input.address)
       val addrMapMethod = AddrMapMethod(dfiConfig, addrMap)
-      val TaskAddress = addrMapMethod.addressMap(rbcAddress)
-      address.byte.assignFromBits(address.getButeAddress(input.address).asBits)
+      val taskAddress = addrMapMethod.addressMap(rbcAddress)
+      address.byte.assignFromBits(address.getByteAddress(input.address).asBits)
       address.cs.assignFromBits(address.getCsAddress(input.address).asBits)
-      address.assignUnassignedByName(TaskAddress.address)
+      address.assignUnassignedByName(taskAddress.address)
     }
     val status = Status()
     status.allowPrecharge := True
-    status.allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
-    status.allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True)
-    status.allowRead := !WTR.busy && (if (CCD != null) !CCD.busy else True)
+    status.allowActive := !RRD_busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
+    status.allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
+    status.allowRead := !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
     status.bankHit := banksRow.readAsync(address.bank) === address.row
     status.bankActive := banks.map(_.active).read(address.bank)
     status.employ(address)
     readyForRefresh clearWhen (input.valid)
   }
   val columnBurstShift = log2Up(dfiConfig.transferPerBurst)
+  // Defaults so every generation drives the DDR4-only op flags; the init override below
+  // (DDR4 only) takes precedence during the power-up sequence.
+  io.output.mrs := False
+  io.output.zq := False
 
   readyForRefresh clearWhen (io.cmd.valid)
-  val columnBurstMask = (sdram.columnSize - 1) - (io.cmd.stationLengthMax - 1 << columnBurstShift)
+  val columnBurstMask = (sdram.columnSize - 1) - ((io.cmd.stationLengthMax - 1) << columnBurstShift)
   val station = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
     val address = Reg(BusAddress(dfiConfig))
     val write = Reg(Bool())
     val context = Reg(Bits(taskConfig.contextWidth bits))
-    val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth bits))
+    val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth + 1 bits))
 
     import status._
     allowPrecharge := True
-    allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
-    allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True)
-    allowRead := !WTR.busy && (if (CCD != null) !CCD.busy else True)
+    allowActive := !RRD_busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
+    allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
+    allowRead := !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
     bankHit.init(False)
     bankActive.init(False)
     status.employ(address)
@@ -132,7 +271,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
     val blockedByWriteToken = inputWrite && allowWrite && !io.writeDataToken.valid // For debug visualisation
 
-    val fire = False // It is the last cycle for this station
     val last = offset === offsetLast
     io.output.address.column := address.column | (offset << columnBurstShift).resized
     io.output.address.assignUnassignedByName(address)
@@ -150,7 +288,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       offset := offset + 1
       when(last) {
         valid := False
-        fire := True
       }
     }
     readyForRefresh clearWhen (valid)
@@ -163,10 +300,21 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
   val selectedAddress = io.output.address
   val loader = new Area {
-    taskConstructor.input.ready := !station.valid
+    taskConstructor.input.ready := !station.valid && initDone
     val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
-    val offsetLast = offset + taskConstructor.input.length
-    val canSpawn = !station.valid
+    val offsetLast = offset +^ taskConstructor.input.length
+    // BmbAlignedSpliter guarantees sub-commands never cross a bytePerTaskMax-aligned boundary, so
+    // offset + length fits the station range. Make that invariant explicit: with the +1-bit wide
+    // offsetLast, a violation is detected before any truncation can wrap the comparison.
+    // Gated on input.valid: the m2sPipe stage latches garbage payload while valid is low
+    // (collapsible bubble), and this combinatorial assertion would otherwise trip on those cycles.
+    when(taskConstructor.input.valid) {
+      assert(
+        offsetLast <= io.cmd.stationLengthMax - 1,
+        "SDRAM task bursts cross the station boundary: offset + length must fit in stationLengthWidth bits"
+      )
+    }
+    val canSpawn = !station.valid && initDone
     // Insert taskConstructor into one free station
     when(taskConstructor.input.fire && canSpawn) {
       station.valid := True
@@ -175,11 +323,11 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       station.address.assignUnassignedByName(taskConstructor.address)
       station.write := taskConstructor.input.write
       station.context := taskConstructor.input.context
-      station.offset := offset
+      station.offset := offset.resized
       station.offsetLast := offsetLast
     }
   }
-  val askRefresh = refreshStream.valid && readyForRefresh
+  val askRefresh = refreshStream.valid && readyForRefresh && initDone
   when(station.doSomething) {
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
@@ -196,6 +344,25 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     prechargeAllCmd.onExit(io.output.prechargeAll := True)
     refreshCmd.onExit(io.output.refresh := True)
     refreshReady.onExit(refreshStream.ready := True)
+  }
+
+  // DDR4 MRS/ZQ override (conditional, so no assignment overlap with the station path).
+  // While init runs, the normal command path is held off: the station cannot spawn, the
+  // refresh FSM is gated, and active/precharge are forced low here so no ACT/PRE leaks
+  // onto the DFI bus before MRS+ZQCL complete (the agent asserts on that).
+  if (ddr4Init != null) {
+    when(!ddr4Init.io.done) {
+      io.output.active := False
+      io.output.precharge := False
+      io.output.mrs := ddr4Init.io.initOp.mrs
+      io.output.zq := ddr4Init.io.initOp.zq
+      // MR select rides the low 3 bits of the flat bank index: {BG0=MRSEL2, BA1:0=MRSEL1:0}
+      io.output.address.bank := ddr4Init.io.initOp.mrIndex.resized
+      // OP code rides the row field (MRS: A15:0 = OP). Truncation is safe for the
+      // supported geometries: all defined OP bits of the default mode regs fit in 13 bits.
+      io.output.address.row := ddr4Init.io.initOp.opCode.resized
+      io.output.last := True
+    }
   }
 
   def timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskConfig.taskParameter.timingWidth) = new Area {
