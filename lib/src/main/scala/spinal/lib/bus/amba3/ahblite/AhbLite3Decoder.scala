@@ -150,7 +150,7 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
   val isIdle  = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
 
-  val slaveReadyOutReduction = outputs.map(_.HREADYOUT).reduce(_ & _)
+  val slaveReadyOutReduction = outputs.map(_.HREADYOUT).reduceBalancedTree(_ & _)
 
   val decodesSlaves       = decodings.map(_.hit(io.input.HADDR) && !isIdle && io.input.HSEL).asBits
   val decodeDefaultSlave  = decodesSlaves === 0 & !isIdle && io.input.HSEL

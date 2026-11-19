@@ -575,7 +575,7 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
           strbsErrors(i) := (strbs(i) & ~byteLaneMask.asBits).orR
         }
       }
-      strbError := strbsErrors.reduce(_ | _)
+      strbError := strbsErrors.reduceBalancedTree(_ | _)
     }
   }
 

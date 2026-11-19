@@ -51,7 +51,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def apply(block: => Unit): ElseWhenClause = new ElseWhenClause(cond, block)
   }
 
-
   /**
     * Implicit Int/BigInt/Double to Builder
     */
@@ -268,8 +267,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
    */
   def True(implicit loc: Location)  = Bool(true)
 
-  /** Hardware false value  
-   */  
+  /** Hardware false value
+   */
   def False(implicit loc: Location) = Bool(false)
 
   /**
@@ -305,7 +304,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
       */
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
-    
+
     /** Create a `UInt` hardware literal.
       * @example{{{
       * myUInt := U"0000_0101"  // Base per default is binary => 5
@@ -314,11 +313,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       *                         //               d (base 10)
       *                         //               o (base 8)
       *                         //               b (base 2)
-      * myUInt := U"8'h1A"}}}  
+      * myUInt := U"8'h1A"}}}
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
       */
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
-    
+
     /** Create a `SInt` hardware literal.
       * @example{{{
       * mySInt := S"0000_0101"  // Base per default is binary => 5
@@ -327,16 +326,16 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       *                         //               d (base 10)
       *                         //               o (base 8)
       *                         //               b (base 2)
-      * mySInt := S"8'h1A"}}}  
+      * mySInt := S"8'h1A"}}}
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
       */
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
 
     /** Create a mask hardware literal.
-      *  
+      *
       * Useful for don't care comparisons.
       * @example{{{
-      * val myBits = B"1101"    
+      * val myBits = B"1101"
       * val test1 = myBits === M"1-01" // True
       * val test2 = myBits === M"0---" // False
       * val test3 = myBits === M"1--1" // True}}}
@@ -712,7 +711,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
      */
     def simInit(that: T): T = {
       require(data.flatten.forall(_.isReg), "simInit can only be applied to registers")
-      
+
       // Extract literal values from expressions
       def findLiteral(expr: Expression): Expression = expr match {
         case lit: Literal => lit
@@ -725,7 +724,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
         }
         case _ => expr
       }
-      
+
       (data, that) match {
         case (reg: BaseType, value: BaseType) if data.flatten.length == 1 =>
           val literalValue = findLiteral(value)
@@ -736,8 +735,34 @@ package object core extends BaseTypeFactory with BaseTypeCast {
             regElement.addTag(SimInitTag(literalValue))
           }
       }
-      
+
       data
+    }
+  }
+
+  /**
+   * Extension methods for providing balanced reduce for utility optimization
+   */
+  implicit class TraversableOnceBalancedPimped[T](pimped: TraversableOnce[T]) {
+    def reduceBalanced(op: (T, T) => T): T = reduceBalanced(op, (value, _) => value)
+
+    def reduceBalanced(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
+      def stage(elements: ArrayBuffer[T], level: Int): T = {
+        if (elements.length == 1) return elements.head
+        val stageLogic = new ArrayBuffer[T]()
+        val logicCount = (elements.length + 1) / 2
+        for (i <- 0 until logicCount) {
+          if (i * 2 + 1 < elements.length)
+            stageLogic += levelBridge(op(elements(i * 2), elements(i * 2 + 1)), level)
+          else
+            stageLogic += levelBridge(elements(i * 2), level)
+        }
+        stage(stageLogic, level + 1)
+      }
+
+      val elements = ArrayBuffer[T]() ++ pimped
+      assert(elements.nonEmpty, "can't use reduceBalanced on an empty collection")
+      stage(elements, 0)
     }
   }
 }

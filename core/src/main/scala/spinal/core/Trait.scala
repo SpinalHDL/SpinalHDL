@@ -128,6 +128,7 @@ class GlobalData(val config : SpinalConfig) {
   var anonymSignalPrefix: String = null
   var commonClockConfig = ClockDomainConfig()
   var phaseContext : PhaseContext = null
+  var widthEvaluation: WidthEvaluation = null
 
   var nodeAreNamed                 = false
   var nodeAreInferringWidth        = false

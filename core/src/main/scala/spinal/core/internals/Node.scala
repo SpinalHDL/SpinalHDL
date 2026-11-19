@@ -177,44 +177,25 @@ trait Widthable extends WidthProvider{
   private[core] var inferredWidth = -1
 
   private[core] def calcWidth: Int
+  /** Width inputs read by calcWidth; implementations must not call getWidth here. */
+  private[core] def calcNodes: Iterator[WidthProvider] = ???
 
   override def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {
       inferredWidth
     } else {
-      val isFirst = globalData.nodeGetWidthWalkedSet.isEmpty
-
-      if (globalData.nodeGetWidthWalkedSet.contains(this))
-        SpinalError(s"Can't calculate width of $this when design is in construction phase")
-
-      globalData.nodeGetWidthWalkedSet += this
-      var temp: Int = 0
-
-      if (isFirst) {
+      val active = globalData.widthEvaluation
+      if (active != null) active.get(this)
+      else {
+        val evaluation = new WidthEvaluation(globalData)
+        globalData.widthEvaluation = evaluation
         try {
-          temp = calcWidth
-        } catch {
-          case e: Exception =>
-            globalData.nodeGetWidthWalkedSet.clear()
-            throw e
+          evaluation.get(this)
+        } finally {
+          globalData.widthEvaluation = null
+          globalData.nodeGetWidthWalkedSet.clear()
         }
-      } else {
-        temp = calcWidth
       }
-
-      if (temp == -1) {
-        globalData.nodeGetWidthWalkedSet.clear()
-        SpinalError(s"Can't infer width because of unspecified width on ${this.getScalaLocationLong}")
-      }
-
-      globalData.nodeGetWidthWalkedSet -= this
-
-      if (isFirst) globalData.nodeGetWidthWalkedSet.clear()
-
-      if (widthWhenNotInferred != -1 && widthWhenNotInferred != temp) SpinalError(s"getWidth result differ from last call $getScalaLocationLong")
-
-      widthWhenNotInferred = temp
-      temp
     }
   }
 

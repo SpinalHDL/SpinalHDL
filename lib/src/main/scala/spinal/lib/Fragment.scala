@@ -381,7 +381,7 @@ class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bit
     port.valid := dataLoaded && header === portHeader
   }
 
-  when(headerLoaded && dataLoaded && outputs.map(!_._2.isStall).reduce(_ && _)){
+  when(headerLoaded && dataLoaded && outputs.map(!_._2.isStall).reduceBalancedTree(_ && _)){
     headerLoaded := False
     dataLoaded := False
   }

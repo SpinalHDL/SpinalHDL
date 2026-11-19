@@ -112,7 +112,7 @@ abstract class ComponentEmitter {
 
   def isSubComponentInputBound(data: BaseType) = {
     var hasOtherUse = false
-    if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)) {
+    if(data.isInput && data.isComb && Statement.isFullToFullLit(data)) {
       data.component.parent.dslBody.foreachStatements{
         case x: AssignmentStatement => {
           if(x.source == data) {hasOtherUse = true}

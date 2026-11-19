@@ -72,7 +72,7 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, rou
       maskProposal := OHMasking.first(requests)
 
     val requestIndex     = OHToUInt(maskRouted)
-    io.output.HSEL      := (io.inputs, maskRouted.asBools).zipped.map(_.HSEL & _).reduce(_ | _)
+    io.output.HSEL      := (io.inputs, maskRouted.asBools).zipped.map(_.HSEL & _).reduceBalancedTree(_ | _)
     io.output.HADDR     := io.inputs(requestIndex).HADDR
     io.output.HREADY    := io.inputs(requestIndex).HREADY
     io.output.HWRITE    := io.inputs(requestIndex).HWRITE

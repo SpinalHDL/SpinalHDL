@@ -187,7 +187,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       val RespWhileReset = (reset | past(reset)) & (b.valid === True)
       val WrongStrb = if (config.useStrb) responseLogic.strbsChecker.strbError else False
       val WrongResponse = respErrors.reduce(_ | _)
-      val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
+      val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduceBalancedTree(_ | _)
     }
 
     def formalAssertsMaster(maxStallCycles: Int = 0) = new Area {

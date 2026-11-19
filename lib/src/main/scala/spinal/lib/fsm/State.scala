@@ -26,6 +26,7 @@
 package spinal.lib.fsm
 
 import spinal.core._
+import spinal.lib._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -332,7 +333,7 @@ class StateParallelFsm(val _fsms: StateMachineAccessor*)(implicit stateMachineAc
 
   whenIsActiveWithPriority(1){
     val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())
-    when(readys.reduce(_ && _)){
+    when(readys.reduceBalancedTree(_ && _)){
       doWhenCompletedTasks()
     }
   }
