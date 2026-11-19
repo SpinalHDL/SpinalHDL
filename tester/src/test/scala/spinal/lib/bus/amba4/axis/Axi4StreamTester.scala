@@ -36,6 +36,69 @@ case class Axi4StreamFragmentFixture[T <: Data](config: Axi4StreamConfig, outTyp
 
 class Axi4StreamTester extends SpinalAnyFunSuite {
 
+  test("user width association") {
+    assert(Axi4StreamConfig(dataWidth = 4, useUser = true, userWidth = 2).userBitsWidth == 8)
+    assert(Axi4StreamConfig(dataWidth = 4, useUser = true, beatUserWidth = 3).userBitsWidth == 3)
+
+    val legacyPositionalConfig = Axi4StreamConfig(4, 5, 6, 2, true, true, true, true, true, true)
+    assert(legacyPositionalConfig.userBitsWidth == 8)
+
+    SpinalVerilog(new Component {
+      val laneSource = slave(Axi4Stream(Axi4StreamConfig(dataWidth = 4, useUser = true, userWidth = 2)))
+      val laneSink = master(Axi4Stream(Axi4StreamConfig(dataWidth = 4, useUser = true, userWidth = 2)))
+      val beatSource = slave(Axi4Stream(Axi4StreamConfig(dataWidth = 2, useUser = true, beatUserWidth = 2)))
+      val beatSink = master(Axi4Stream(Axi4StreamConfig(dataWidth = 4, useUser = true, beatUserWidth = 3)))
+      val compactSource = slave(Axi4Stream(Axi4StreamConfig(dataWidth = 4, useKeep = true, useUser = true, beatUserWidth = 3)))
+      val compactSink = master(Axi4Stream(compactSource.config))
+
+      laneSink << laneSource
+      beatSink << beatSource
+      compactSink << Axi4StreamSparseCompactor(compactSource)
+
+      assert(laneSource.user.getBitsWidth == 8)
+      assert(beatSource.user.getBitsWidth == 2)
+      assert(beatSink.user.getBitsWidth == 3)
+    })
+  }
+
+  test("user width configuration validation") {
+    assertThrows[IllegalArgumentException](
+      Axi4StreamConfig(dataWidth = 4, userWidth = 1, beatUserWidth = 1)
+    )
+    assertThrows[IllegalArgumentException](
+      Axi4StreamConfig(dataWidth = 4, beatUserWidth = 0)
+    )
+    assertThrows[IllegalArgumentException](
+      Axi4StreamConfig(dataWidth = 4, beatUserWidth = -2)
+    )
+  }
+
+  test("beat user width adapter support") {
+    val beatConfig = Axi4StreamConfig(dataWidth = 4, useUser = true, beatUserWidth = 3)
+
+    SpinalVerilog(new Axi4StreamSimpleWidthAdapter(beatConfig, outWidth = 4))
+    SpinalVerilog(new Axi4StreamSimpleWidthAdapter(beatConfig, outWidth = 2))
+    SpinalVerilog(new Axi4StreamSimpleWidthAdapter(beatConfig, outWidth = 8))
+    SpinalVerilog(new Axi4StreamWidthAdapter(beatConfig, beatConfig.copy(dataWidth = 2)))
+    SpinalVerilog(new Axi4StreamWidthAdapter(beatConfig, beatConfig.copy(dataWidth = 8)))
+    SpinalVerilog(new Axi4StreamWidthAdapter(
+      beatConfig.copy(useKeep = true, useLast = true),
+      beatConfig.copy(dataWidth = 8, useKeep = true, useLast = true),
+      compact = true
+    ))
+
+    val laneConfig = Axi4StreamConfig(dataWidth = 4, useUser = true, userWidth = 2)
+    SpinalVerilog(new Axi4StreamSimpleWidthAdapter(laneConfig, outWidth = 2))
+    SpinalVerilog(new Axi4StreamWidthAdapter(laneConfig, laneConfig.copy(dataWidth = 8)))
+
+    assertThrows[IllegalArgumentException](
+      SpinalVerilog(new Axi4StreamWidthAdapter(
+        Axi4StreamConfig(dataWidth = 4, useUser = true, userWidth = 1),
+        Axi4StreamConfig(dataWidth = 2, useUser = true, beatUserWidth = 3)
+      ))
+    )
+  }
+
   def duplexTest(dut: Axi4StreamEndianFixture[Bits]): Unit = {
     dut.clockDomain.forkStimulus(10)
 
