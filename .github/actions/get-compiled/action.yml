@@ -4,7 +4,7 @@ description: 'Gets the result of previous compilation'
 runs:
   using: "composite"
   steps:
-    - uses: actions/cache/restore@v3
+    - uses: actions/cache/restore@v6
       id: get-compiled
       with:
         path: |
