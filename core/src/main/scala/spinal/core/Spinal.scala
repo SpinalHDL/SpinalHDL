@@ -60,15 +60,16 @@ case class ObfuscateConfig (
 case class Device(vendor: String = "?",
                   family: String = "?",
                   name: String = "?",
-                  supportBootResetKind : Boolean = true){
+                  supportBootResetKind : Boolean = true) {
   def isVendorDefault = vendor == "?"
 }
-object Device{
+object Device {
   val ALTERA = Device(vendor = "altera")
   val XILINX = Device(vendor = "xilinx")
   val LATTICE = Device(vendor = "lattice")
   val ACTEL = Device(vendor = "actel")
   val EFINIX = Device(vendor = "efinix")
+  val COLOGNE_CHIP = Device(vendor = "cologneChip")
   val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
 
