@@ -70,8 +70,8 @@ class RegIfTilelinkFabricDut extends Component {
 }
 
 // TileLink version of RegIfTester (StrbTester.scala): every access type checked against the RegIfRef model,
-// with random PutPartialData masks as write strobes
-class RegIfTilelinkRefDut extends Component with RegIfRef {
+// with random PutPartialData masks as write strobes. layout / bitCount: field split of every register, see RegIfRefFields
+class RegIfTilelinkRefDut(layout: Seq[Int] = Seq(32), bitCount: Boolean = false) extends Component with RegIfRef {
   val bus = slave(tilelink.Bus(TilelinkBusInterface.getParameter(addressWidth = 12, dataWidth = 32)))
   val io = new Bundle {
     val o          = out(Vec(Bits(32 bit), ACCESS_LIST.size))
@@ -87,20 +87,16 @@ class RegIfTilelinkRefDut extends Component with RegIfRef {
 
   ACCESS_LIST.zipWithIndex.foreach { case (acc, i) =>
     val REG = regIf.newRegAt(i * 4, s"Register_0x${(i * 4).hexString(16)}_${acc}")
-    val reg = acc match {
-      case AccessType.HSRW => REG.fieldHSRW(io.hw_set, io.hw_set_val, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-      case AccessType.RWHS => REG.fieldRWHS(io.hw_set, io.hw_set_val, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-      case _               => REG.field(Bits(32 bit), acc, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-    }
-    reg.setName(s"fd_0x${(i * 4).hexString(16)}_${acc}".toLowerCase())
+    val fields = RegIfRefFields(REG, acc, layout, bitCount, BigInt.probablePrime(32, rand), io.hw_set, io.hw_set_val,
+                                s"fd_0x${(i * 4).hexString(16)}_${acc}".toLowerCase())
     acc match {
-      case AccessType.RO  => io.o(i).clearAll(); reg := "abcdedf".asHex
+      case AccessType.RO  => io.o(i).clearAll(); fields.foreach { case (f, r) => f.assignFromBits(B("abcdedf".asHex, 32 bit)(r)) }
       case AccessType.ROV => io.o(i).clearAll()
       case _ => {
         when (io.t) {
-          reg := io.i(i)
+          fields.foreach { case (f, r) => f.assignFromBits(io.i(i)(r)) }
         }
-        io.o(i) := reg
+        io.o(i) := Cat(fields.map(_._1))
       }
     }
   }
@@ -389,11 +385,23 @@ class RegIfTilelinkTester extends SpinalAnyFunSuite {
     }
   }
 
-  test("access_types_reference_model") {
-    SimConfig.compile(new RegIfTilelinkRefDut).doSim { dut =>
+  def referenceModelTest(layout: Seq[Int] = Seq(32), bitCount: Boolean = false): Unit = {
+    SimConfig.compile(new RegIfTilelinkRefDut(layout, bitCount)).doSim { dut =>
       dut.sim()
       assert(!dut.isFail, "\n" + dut.failures.mkString("\n"))
     }
+  }
+
+  test("access_types_reference_model") {
+    referenceModelTest()
+  }
+
+  test("access_types_reference_model_split_fields") {
+    referenceModelTest(RegIfRefFields.split)
+  }
+
+  test("access_types_reference_model_split_fields_bitcount") {
+    referenceModelTest(RegIfRefFields.split, bitCount = true)
   }
 
   test("ram_and_fifos") {

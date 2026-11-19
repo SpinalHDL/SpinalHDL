@@ -11,7 +11,8 @@ import spinal.lib.bus.amba4.apb.{Apb4, Apb4Config}
 import scala.collection.immutable._
 import scala.util.Random
 
-class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
+// layout / bitCount: field split of every register, see RegIfRefFields
+class RegIfTester(seed: Int = 0, layout: Seq[Int] = Seq(32), bitCount: Boolean = false) extends Component with RegIfRef {
   val bus = slave(Apb4(Apb4Config(32, 32)))
   val drv = Apb4Driver(bus, this.clockDomain)
 
@@ -30,26 +31,16 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
 
   ACCESS_LIST.zipWithIndex.foreach{ case(acc, i) =>
     val REG = regIf.newRegAt(i*4, s"Register_0x${(i*4).hexString(16)}_${acc}")
-    val reg = acc match{
-      case `HSRW` => {
-        REG.fieldHSRW(io.hw_set, io.hw_set_val, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-      }
-      case `RWHS` => {
-        REG.fieldRWHS(io.hw_set, io.hw_set_val, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-      }
-      case _ => {
-        REG.field(Bits(32 bit), acc, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-      }
-    }
-    reg.setName(s"fd_0x${(i * 4).hexString(16)}_${acc}".toLowerCase())
+    val fields = RegIfRefFields(REG, acc, layout, bitCount, BigInt.probablePrime(32, rand), io.hw_set, io.hw_set_val,
+                                s"fd_0x${(i * 4).hexString(16)}_${acc}".toLowerCase())
     acc match{
-      case `RO`  => io.o(i).clearAll();io.o_z(i).clearAll();reg := "abcdedf".asHex
+      case `RO`  => io.o(i).clearAll();io.o_z(i).clearAll();fields.foreach{ case (f, r) => f.assignFromBits(B("abcdedf".asHex, 32 bit)(r)) }
       case `ROV` => io.o(i).clearAll();io.o_z(i).clearAll()
       case _ => {
         when(io.t) {
-          reg := io.i(i)
+          fields.foreach{ case (f, r) => f.assignFromBits(io.i(i)(r)) }
         }
-        io.o(i) := reg
+        io.o(i) := Cat(fields.map(_._1))
         io.o_z(i) := RegNext(io.o(i))
       }
     }
@@ -155,12 +146,12 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
 }
 
 object RegIfStrbTesterSim {
-  def sim(name: String, withwave: Boolean = false) ={
+  def sim(name: String, withwave: Boolean = false, layout: Seq[Int] = Seq(32), bitCount: Boolean = false, verbose: Boolean = true) ={
     val sc = if(withwave){ SpinalSimConfig() .withFstWave } else SpinalSimConfig()
       sc
-      .compile(new RegIfTester(seed = 0))
+      .compile(new RegIfTester(seed = 0, layout, bitCount))
       .doSimUntilVoid("test") { dut =>
-        dut.sim(name, true)
+        dut.sim(name, verbose)
       }
   }
 }

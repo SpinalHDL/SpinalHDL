@@ -19,6 +19,8 @@ class RegIfBasicAccessTester extends SpinalAnyFunSuite{
 class RegIfStrbTester extends SpinalAnyFunSuite{
   test("apb4_strb_tester"){RegIfStrbTesterSim.sim("all", false)}
   test("apb4_strb_debug"){RegIfStrbTesterSim.sim("debug", true)}
+  test("apb4_strb_split_fields"){RegIfStrbTesterSim.sim("all", layout = RegIfRefFields.split, verbose = false)}
+  test("apb4_strb_split_fields_bitcount"){RegIfStrbTesterSim.sim("all", layout = RegIfRefFields.split, bitCount = true, verbose = false)}
 }
 
 class RegIfRamFifoTester extends SpinalAnyFunSuite{
