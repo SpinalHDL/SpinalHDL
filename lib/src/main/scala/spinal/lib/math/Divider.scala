@@ -80,7 +80,6 @@ case class UnsignedDividerRsp[T <: Data](nWidth : Int, dWidth : Int,contextType 
 
 
 class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : Boolean,contextType : T = NoData) extends Component{
-  assert(storeDenominator, "!storeDenominator is currently buggy")
   val io = new Bundle{
     val flush = in Bool()
     val cmd = slave Stream(UnsignedDividerCmd(nWidth,dWidth,contextType))
@@ -132,9 +131,6 @@ class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : B
     when(counter.willOverflowIfInc){
       done := True
       waitRsp := True
-      if(!storeDenominator) {
-        io.cmd.ready := True
-      }
     }
   }
 
