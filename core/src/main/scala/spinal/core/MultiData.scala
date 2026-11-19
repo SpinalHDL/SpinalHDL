@@ -258,6 +258,12 @@ abstract class MultiData extends Data {
         dst := src
       case _ =>
     }
+
+    for (bt <- this.flatten) {
+      val canBeAssigned = bt.isDirectionLess || bt.isOutput && bt.component == Component.current || bt.isInput && bt.component.parent == Component.current
+      if (canBeAssigned && !bt.hasDataAssignment)
+        SpinalError(s"NO DRIVER ON $bt : no matching signal is found in the source bundle: ${that}")
+    }
   }
 
   def zipByName(that: MultiData, rec : ArrayBuffer[(BaseType, BaseType)] = ArrayBuffer()): ArrayBuffer[(BaseType, BaseType)] = {
