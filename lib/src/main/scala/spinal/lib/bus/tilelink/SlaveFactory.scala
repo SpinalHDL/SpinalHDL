@@ -60,25 +60,26 @@ object SlaveFactory{
 
 class SlaveFactory(bus: Bus, allowBurst : Boolean) extends BusSlaveFactoryDelayed{
   val implementBurst = allowBurst && bus.p.beatMax > 1
+
+  val rspAsync = cloneOf(bus.d)
+  val busStaged = bus.a.s2mPipe()
+
   val unburstify = implementBurst generate new Area {
-    val isGet = bus.a.opcode === Opcode.A.GET
+    val isGet = busStaged.opcode === Opcode.A.GET
     val counter = Reg(bus.p.beat) init (0)
-    val last = counter === bus.a.sizeToBeatMinusOne()
-    val busA = bus.a.forkSerial(!isGet || last)
+    val last = counter === busStaged.sizeToBeatMinusOne()
+    val busA = busStaged.forkSerial(!isGet || last)
     when(busA.fire) {
       counter := counter + 1
-      when(bus.a.fire && (isGet || last)) {
+      when(last) {
         counter := 0
       }
     }
-    busA.address.removeAssignments() := bus.a.address | (counter << log2Up(bus.p.dataBytes)).resized
+    busA.address.removeAssignments() := busStaged.address | (counter << log2Up(bus.p.dataBytes)).resized
     val withRsp = isGet || last
   }
 
-
-  val rspAsync = cloneOf(bus.d)
-
-  def busA = if (implementBurst) unburstify.busA else bus.a
+  def busA = if (implementBurst) unburstify.busA else busStaged
   def withRsp = if (implementBurst) unburstify.withRsp else True
 
 
