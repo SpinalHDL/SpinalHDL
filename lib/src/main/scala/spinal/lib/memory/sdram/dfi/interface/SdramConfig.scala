@@ -80,11 +80,17 @@ case class SdramConfig(
   def tRCD = timeCycle(sdramtime.RCD, cycleTime_ns)
   def tRP = timeCycle(sdramtime.RP, cycleTime_ns)
   def tRFC = timeCycle(sdramtime.RFC, cycleTime_ns)
+  // All timing values below are in MC clock cycles:
+  // - timeCycle() converts ns -> MC cycles (cycleTime_ns = 1000/ddrMHZ ns)
+  // - ddrWrLat/ddrRdLat/tWR are already expressed in MC clock cycles
   def tWTR =
     math.max(timeCycle(sdramtime.WTR, cycleTime_ns), ddrWrLat + generation.burstLength / generation.dataRate + tWR)
 
   def tRTW = ddrRdLat + generation.burstLength / generation.dataRate + tWR
 
+  /** Write recovery time (tWR) in MC clock cycles.
+    * Hardcoded approximation inherited from the legacy xdr controller (5ns + 1 cycle at 200MHz).
+    */
   def tWR = 5 + 1
 
   def tRAS = timeCycle(sdramtime.RAS, cycleTime_ns)
