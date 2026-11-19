@@ -9,9 +9,13 @@ case class Control(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compone
     val output = master(IDFI(dfiConfig))
   }
 
+  // Single registered copy of the task port, shared by the command and read-data datapaths
+  // (calling init() twice would duplicate the whole OpTasks register bank).
+  val tasksInit = io.input.tasks.init()
+
   val cmd = new Area {
     val cmdtxd = CmdTxd(taskConfig, dfiConfig)
-    cmdtxd.io.task <> io.input.tasks.init()
+    cmdtxd.io.task <> tasksInit
   }
 
   val wrdata = new Area {
@@ -22,7 +26,7 @@ case class Control(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compone
 
   val radata = new Area {
     val rddatarxd = RdDataRxd(taskConfig, dfiConfig)
-    rddatarxd.io.task <> io.input.tasks.init()
+    rddatarxd.io.task <> tasksInit
     rddatarxd.io.output.toStream >> io.input.rsp
   }
 
