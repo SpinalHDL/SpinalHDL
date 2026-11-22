@@ -164,6 +164,7 @@ class MemoryAgent(bus: Bus,
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
           val d = TransactionD(a)
           d.opcode = Opcode.D.ACCESS_ACK_DATA
+          d.param = 0
           d.denied = !ok
           if(ok) {
             val old = mem.readBytes(a.address.toLong, a.bytes)
@@ -304,6 +305,7 @@ class MemoryAgent(bus: Bus,
 
         val d = TransactionD(c)
         d.opcode = Opcode.D.RELEASE_ACK
+        d.param = 0 // ReleaseAck.param is reserved and must be zero
         driver.scheduleD(d)
       }
     }
