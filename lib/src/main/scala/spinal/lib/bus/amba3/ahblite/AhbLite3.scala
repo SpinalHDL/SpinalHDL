@@ -155,16 +155,20 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
   def fire(): Bool = HSEL && HREADYOUT
 
   def writeMask(): Bits = {
-    val lowMask, highMask = Bits(config.bytePerWord bits)
-    val low  =  HADDR(config.symboleRange)
-    val high = HADDR(config.symboleRange) + Vec((0 to config.bytePerWord).map(idx => idx === HSIZE)).asBits.asUInt
-
-    for(idx <- lowMask.bitsRange) {
-      lowMask(idx)  := (if(idx != low.maxValue) low <= idx else True)
-      highMask(idx) := high > idx
+    val mask = Bits(config.bytePerWord bits)
+    mask := B(0)
+    
+    for (sizeExp <- 0 to log2Up(config.bytePerWord)) {
+      when (HSIZE === sizeExp) {
+        val size = 1 << sizeExp
+        
+        for (offset <- 0 until config.bytePerWord) {
+          mask(offset) := HADDR(config.symboleRange) === (offset & ~(size - 1))
+        }
+      }
     }
-
-    lowMask & highMask
+    
+    mask
   }
 
   /** Connect two AhbLite3 bus together with the resized of the address */
