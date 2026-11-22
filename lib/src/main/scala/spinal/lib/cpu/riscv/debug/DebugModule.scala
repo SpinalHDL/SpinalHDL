@@ -118,6 +118,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val ackhavereset = factory.setOnSet(False, 0x10, 28)
 
       val hartSelAarsizeLimit = p.hartsConfig.map(v => U(log2Up(v.xlen/8))).read(hartSel.resized)
+      val hartSelHasFpu = p.hartsConfig.map(v => (if(v.flen != 0) True else False)).read(hartSel.resized)
+      val hartSelFpuRegAccess = p.hartsConfig.map(v => (if(v.withFpuRegAccess) True else False)).read(hartSel.resized)
       val hartSelAarsizeLimitF = p.hartsConfig.map(v => U(log2Up(if(v.withFpuRegAccess) v.flen/8 else 0))).read(hartSel.resized)
 
       val harts = for((bus, hartId) <- io.harts.zipWithIndex) yield new Area{
@@ -418,9 +420,19 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
           val aarsize = UInt(3 bits)
         }
         val args = data.as(Args())
-        val regnoMsk = if(withFpuAccess) 6 else 5
-        val transferFloat = args.regno(5)
-        val notSupported = args.aarsize > (transferFloat ? dmcontrol.hartSelAarsizeLimitF | dmcontrol.hartSelAarsizeLimit) || args.aarpostincrement || args.transfer && args.regno(regnoMsk, 16-regnoMsk bits) =/= 0x1000 >> regnoMsk
+        val transferInteger = args.regno(15 downto 5) === 0x80 // 0x1000..0x101f
+        val transferFloat = args.regno(15 downto 5) === 0x81 // 0x1020..0x103f
+        // A missing FPR is an exception, not an unsupported abstract-access path.
+        // FLEN describes register existence; withFpuRegAccess describes DM support.
+        val missingRegister = args.transfer && transferFloat && !dmcontrol.hartSelHasFpu
+        val unsupportedOptions = data(23) || args.aarpostincrement ||
+          args.transfer && (args.aarsize < 2 || args.aarsize > 4)
+        // With transfer=0 neither regno nor aarsize participates in the command.
+        // CSR/custom abstract access remains optional and unsupported here.
+        val notSupported = unsupportedOptions || args.transfer && (
+          (!transferInteger && !transferFloat) ||
+          (transferFloat && !dmcontrol.hartSelFpuRegAccess) ||
+          args.aarsize > (transferFloat ? dmcontrol.hartSelAarsizeLimitF | dmcontrol.hartSelAarsizeLimit))
       }
 
       val request = commandRequest || abstractAuto.trigger
@@ -449,7 +461,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         goto(IDLE)
         switch(data(31 downto 24)) {
           is(0) { //access register
-            when(access.notSupported) {
+            when(access.missingRegister && !access.unsupportedOptions) {
+              abstractcs.error := DebugModuleCmdErr.EXCEPTION
+            } elsewhen(access.notSupported) {
               abstractcs.error := DebugModuleCmdErr.NOT_SUPPORTED
             } otherwise {
               when(access.args.postExec){
