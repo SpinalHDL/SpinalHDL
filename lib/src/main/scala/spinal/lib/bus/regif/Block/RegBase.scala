@@ -244,12 +244,12 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
       for(x <- section) {
         val idx = x - section.min
         accType match {
-          case AccessType.W1C => when( busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), idx, "clear" )} //ret(idx).clear()
-          case AccessType.W1S => when( busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
-          case AccessType.W1T => when( busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
-          case AccessType.W0C => when(~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), idx, "clear" )}//ret(idx).clear()}
-          case AccessType.W0S => when(~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
-          case AccessType.W0T => when(~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
+          case AccessType.W1C => when( busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "clear" )} //ret(idx).clear()
+          case AccessType.W1S => when( busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "set"   )}//ret(idx).set()  }
+          case AccessType.W1T => when( busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "toggle")}//ret(idx) := ~ret(idx)}
+          case AccessType.W0C => when(~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+          case AccessType.W0S => when(~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "set"   )}//ret(idx).set()  }
+          case AccessType.W0T => when(~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "toggle")}//ret(idx) := ~ret(idx)}
           case _ =>
         }
       }
