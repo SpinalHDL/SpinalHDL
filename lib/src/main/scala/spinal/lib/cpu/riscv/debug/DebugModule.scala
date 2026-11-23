@@ -359,18 +359,25 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
 
     val dataX = new Area{
       val readMem = Mem.fill(p.datacount)(Bits(32 bits))
-      readMem.write(
-        address = fromHarts.address.resized,
-        data = fromHarts.data,
-        enable = fromHarts.valid
-      )
 
       val trigged = False
+      // A debugger write accepted by the DM, i.e. while no abstract command is running.
+      val hostWrite = False
       val cmdAddress = (io.ctrl.cmd.address - 4).resize(log2Up(p.datacount) bits)
+
+      // The debugger reads readMem, so its own writes have to land there as well as in the hart.
+      // The hart has priority: it only writes while a command is busy, when hostWrite is blocked.
+      readMem.write(
+        address = fromHarts.valid ? fromHarts.address.resize(log2Up(p.datacount) bits) | cmdAddress,
+        data = fromHarts.valid ? fromHarts.data | io.ctrl.cmd.data,
+        enable = fromHarts.valid || hostWrite
+      )
+
       when(io.ctrl.cmd.valid && io.ctrl.cmd.address >= 0x04 &&  io.ctrl.cmd.address < 0x04 + p.datacount){
         trigged := True
+        hostWrite := io.ctrl.cmd.write && !abstractcs.busy
 
-        toHarts.valid   setWhen(io.ctrl.cmd.write && !abstractcs.busy)
+        toHarts.valid   setWhen(hostWrite)
         toHarts.op      := DebugDmToHartOp.DATA
         toHarts.address := cmdAddress.resized
         toHarts.data    := io.ctrl.cmd.data
