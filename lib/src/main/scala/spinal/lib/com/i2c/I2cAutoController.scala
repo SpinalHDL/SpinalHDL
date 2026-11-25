@@ -154,7 +154,7 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
   // Precedent: I2cIoFilter in Misc.scala.
   //
   val busFilter = new I2cWireConditioner(io.i2c.scl.read, io.i2c.sda.read, io.cfg.sampDiv, c.sampWinSize, c.sampDivWidth)
-  import busFilter.{sclFilt, sdaFilt}
+  import busFilter.{sclFilt, sdaFilt, sclSync, sdaSync}
 
   // (The timeout watchdog lives further down, grouped with its SCL-edge
   //  reload trigger so all timeout logic sits in one place.)
@@ -254,9 +254,18 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
 
   // === External-bus occupancy tracker (§3.1.10 UM10204) ===
   // A master must not initiate a START while the bus is busy. Track external
-  // occupancy from the filtered wires while we are NOT driving (our own edges
-  // would otherwise feed back): a START sets busy, a STOP clears it. While
-  // status.busy (our own transfer owns the wires) the tracker is frozen.
+  // occupancy with a 2D (SCL,SDA) quadrant state machine on the raw 2FF-synced
+  // wires (ticket 03 / F-M6): both wires are sampled on the SAME edge, so the
+  // inter-filter sampling skew of the old dual-filter design (legal tHD;DAT=0
+  // timing can invert the filtered edge order) can no longer forge START/STOP.
+  //   START = SDA falls while SCL High: quad 11 -> 10, held for 2 cycles
+  //   STOP  = SDA rises while SCL High: quad 10 -> 11, held for 2 cycles
+  // Data bits toggle SDA only while SCL Low (01 <-> 00), which can never form
+  // either pattern — a legal skew (SDA changing right after the SCL edge)
+  // cannot false-trigger. The 2-cycle hold rejects single-cycle noise
+  // (tSU;STA / tHD;STO >> 2 cycles at any supported fCLK).
+  // While status.busy (our own transfer owns the wires) the tracker is
+  // frozen; recovery completion clears it (see RECOV_HI).
   val extBusy = new Area {
     val busBusyExt = RegInit(False)
     // Armed only after the first accepted transfer: at power-up the wires can
@@ -268,12 +277,14 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
     // holds for a freshly-reset controller on a normally-idle bus. If the system
     // can power up mid-transfer on the bus, arm the tracker earlier (initialize
     // busSeenOnce := True) at the cost of the power-up transient guard above.
-    val sdaPrev = RegNext(sdaFilt)
-    val extStart = sclFilt && sdaPrev && !sdaFilt
-    val extStop  = sclFilt && !sdaPrev && sdaFilt
+    val quad   = Cat(sclSync, sdaSync)  // bit1 = SCL, bit0 = SDA
+    val qPrev  = RegNext(quad) init(0b11)
+    val qPrev2 = RegNext(qPrev) init(0b11)
+    val startEvt = (qPrev2 === 0b11) && (qPrev === 0b10) && (quad === 0b10)
+    val stopEvt  = (qPrev2 === 0b10) && (qPrev === 0b11) && (quad === 0b11)
     when(!status.busy && busSeenOnce) {
-      when(extStart) { busBusyExt := True }
-      when(extStop)  { busBusyExt := False }
+      when(startEvt) { busBusyExt := True }
+      when(stopEvt)  { busBusyExt := False }
     }
   }
   val busBusyExt = extBusy.busBusyExt  // white-box: FSM + testbench observe external-bus occupancy
@@ -691,6 +702,7 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
       whenIsActive {
         sclDrive := True
         sdaEn    := False
+        extBusy.busBusyExt := False  // recovery complete: the DUT just took over the wires and will release them (ticket 03)
         when(timerDone) {
           when(recovCtr === U(1)) {
             recovCtr := U(0)
