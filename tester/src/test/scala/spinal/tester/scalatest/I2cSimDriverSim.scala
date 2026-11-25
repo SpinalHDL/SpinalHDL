@@ -69,11 +69,20 @@ class I2cSimDriverSim extends AnyFunSuite {
   }
 
   // ---- simPublic taps (published in test sources, keeping the lib sim-free) ----
+  // The I2C pins themselves must be simPublic'd too: OpenDrainInterconnect
+  // assigns to the DUT's input pins (`reader #= level`) and the pin watchers
+  // read the DUT's outputs — subcomponent ports are UNACCESSIBLE without the
+  // tag in the Verilator build.
   private def pubMaster(m: I2cAutoMaster): Unit = {
+    m.io.i2c.scl.read.simPublic(); m.io.i2c.scl.write.simPublic()
+    m.io.i2c.sda.read.simPublic(); m.io.i2c.sda.write.simPublic()
     m.status.busy.simPublic(); m.status.errCode.simPublic()
   }
 
   private def pubSlave(s: I2cAutoSlave): Unit = {
+    s.io.i2c.scl.read.simPublic(); s.io.i2c.scl.write.simPublic()
+    s.io.i2c.sda.read.simPublic(); s.io.i2c.sda.write.simPublic()
+    s.inFrame.simPublic()
     s.intr.flags.simPublic()
     s.ram.simPublic()
   }
