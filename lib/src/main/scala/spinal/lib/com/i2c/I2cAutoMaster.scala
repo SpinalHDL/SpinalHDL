@@ -311,6 +311,16 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     txFifo.io.push.valid   := io.tx.valid
     txFifo.io.push.payload := io.tx.payload
 
+    // A CMD rejected while the engine is IDLE (external bus held: req.ready =
+    // !busy && !busBusyExt) would strand the bytes the host already pushed for
+    // it — the CSR map has no flush register, so firmware could never recover.
+    // Discard pending bytes on exactly that reject. A reject while busy must
+    // keep the in-flight transfer's remaining bytes, which share this FIFO.
+    // shortcut: a G5 recovery-tail reject (busy High through the tail) still
+    // strands its bytes; add a CTRL flush bit if firmware needs post-timeout
+    // recovery.
+    txFifo.io.flush := io.cmd.trigger && !req.ready && !engine.io.status.busy
+
     // txFifo pop side feeds the controller's pull seam (one byte per fire).
     engine.io.txData << txFifo.io.pop
 
