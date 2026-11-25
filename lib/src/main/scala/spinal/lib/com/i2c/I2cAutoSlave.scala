@@ -429,23 +429,38 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             // First 10-bit address byte: standard format 11110 A9 A8 R/W.
             // §3.1.11 A1: ACK the header only if it addresses US in WRITE
             // direction — 11110 prefix, A[9:8] equal to our upper bits, R/W=0.
-            // A read-direction header (R/W=1) is answered on the SECOND byte
-            // after Sr (A3); ACKing it here would let every 10-bit slave on
-            // the bus grab the read. The NACK is deliberate but silent (no
-            // errNack/interrupt) to avoid interrupt storms on unrelated
-            // 7-bit frames or foreign 10-bit frames.
+            // A read-direction header (R/W=1) must NOT be ACKed by a slave
+            // that was not addressed earlier in this frame (that would let
+            // every 10-bit slave on the bus grab the read). The NACK is
+            // deliberate but silent (no errNack/interrupt) to avoid
+            // interrupt storms on unrelated 7-bit frames or foreign
+            // 10-bit frames.
             val prefixOk   = rxAccum(7 downto 3) === B"11110"
             val upperMatch = rxAccum(2 downto 1) === io.cfg.slaveAddr(9 downto 8)
             val hdrIsWrite = !rxAccum(0)
             val ackHdr     = prefixOk && upperMatch && hdrIsWrite && io.cfg.addrMatchEn
-            tenBitUpper    := rxAccum(2 downto 1)  // A[9:8]
-            tenBitRw       := rxAccum(0)           // R/W lives in byte 0
-            tenBitPrefixOk := prefixOk
-            addrByteIdx := U(1)
-            inAck       := True
-            bitPos      := U(0)
-            rxAccum     := B(0)
-            sdaOut      := !ackHdr
+            // §3.1.11 Fig 15: after a Repeated START, the slave that was
+            // already addressed in this frame answers the SINGLE read-header
+            // byte (11110 A9 A8 R/W=1) with A3 and enters the read data
+            // phase directly — there is no second address byte after Sr.
+            val a3Hdr      = prefixOk && upperMatch && !hdrIsWrite && wasAddressed && io.cfg.addrMatchEn
+            when(a3Hdr) {
+              isRead     := True
+              hasStarted := True
+              inAck      := True
+              bitPos     := U(0)
+              rxAccum    := B(0)
+              sdaOut     := False  // A3: the addressed slave MUST acknowledge
+            } otherwise {
+              tenBitUpper    := rxAccum(2 downto 1)  // A[9:8]
+              tenBitRw       := rxAccum(0)           // R/W lives in byte 0
+              tenBitPrefixOk := prefixOk
+              addrByteIdx := U(1)
+              inAck       := True
+              bitPos      := U(0)
+              rxAccum     := B(0)
+              sdaOut      := !ackHdr
+            }
           } otherwise {
             // Second 10-bit address byte: A[7:0]; R/W was consumed in byte 0.
             // Require tenBitPrefixOk so a 7-bit frame whose byte0 happened to

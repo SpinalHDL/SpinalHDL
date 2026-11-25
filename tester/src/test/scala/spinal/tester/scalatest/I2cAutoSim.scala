@@ -146,6 +146,22 @@ class I2cAutoSim extends AnyFunSuite {
     startCnt.simPublic(); stopCnt.simPublic()
     when(wireStart) { startCnt := startCnt + U(1) }
     when(wireStop)  { stopCnt  := stopCnt + U(1) }
+    // Phase-1 header snapshot: the sniffer re-arms on every START, so a
+    // Repeated-START frame (10-bit read per Fig 15) overwrites the phase-1
+    // capture. Latch the previous capture at the 2nd START of a frame so the
+    // S..Sr phase (write header + A1/A2) stays assertable after the frame.
+    val snifP1Byte0 = Reg(Bits(8 bits)) init(0)
+    val snifP1Byte1 = Reg(Bits(8 bits)) init(0)
+    val snifP1Ack0  = RegInit(True)
+    val snifP1Ack1  = RegInit(True)
+    snifP1Byte0.simPublic(); snifP1Byte1.simPublic()
+    snifP1Ack0.simPublic();  snifP1Ack1.simPublic()
+    when(wireStart && startCnt === U(1)) {
+      snifP1Byte0 := snifByte0
+      snifP1Ack0  := snifAck0
+      snifP1Byte1 := snifByte1
+      snifP1Ack1  := snifAck1
+    }
     // §3.1.3: SDA must be stable while SCL is High; the ONLY legal SDA
     // edges over SCL-High are the START / STOP (Sr = STOP+START) shapes,
     // which are exactly wireStart / wireStop. Any other SDA edge over
@@ -1684,15 +1700,22 @@ class I2cAutoSim extends AnyFunSuite {
         val rxVal = bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         assert(rxVal == data(i), f"RX[$i]=0x${rxVal}%02X exp 0x${data(i)}%02X")
       }
-      // Golden vectors (UM10204 sec. 3.1.11 A1/A3): the read-direction
-      // 10-bit header is 11110 A9 A8 R/W=1 then A7..A0. NO slave may ACK
-      // the first byte in read direction (addressing happens on byte 2).
-      assert(dut.snifByte0.toInt == 0xF3, f"snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0xF3 (11110 11 1)")
-      assert(dut.snifByte1.toInt == 0xBC, f"snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0xBC (addr low byte)")
-      assert(dut.snifAck0.toBoolean,
-        "no slave may ACK the 10-bit read header byte0 (sec. 3.1.11 A3) - F1 guard")
-      assert(!dut.snifAck1.toBoolean, "addressed slave must ACK the second address byte (sec. 3.1.11 A2)")
-      assertWireClean(dut, expectStarts = 1, expectStops = 1)
+      // Golden vectors — UM10204 §3.1.11 Fig 15, the normative 10-bit read
+      // frame: S, [11110 A9 A8 0] A1, [A7..A0] A2, Sr, [11110 A9 A8 1] A3,
+      // DATA ... NACK, P. For 0x1BC: A9A8=11, so 0xF2 (write) / 0xF3 (read).
+      // Two START edges (S + Sr), one STOP.
+      assertWireClean(dut, expectStarts = 2, expectStops = 1)
+      // Phase 1 (S..Sr): write header 0xF2, A1; low address byte 0xBC, A2
+      assert(dut.snifP1Byte0.toInt == 0xF2, f"phase1 byte0=0x${dut.snifP1Byte0.toInt}%02X, expected 0xF2 (11110 11 0)")
+      assert(!dut.snifP1Ack0.toBoolean, "addressed slave must ACK A1 (write header)")
+      assert(dut.snifP1Byte1.toInt == 0xBC, f"phase1 byte1=0x${dut.snifP1Byte1.toInt}%02X, expected 0xBC (A7..A0)")
+      assert(!dut.snifP1Ack1.toBoolean, "addressed slave must ACK A2 (low address byte)")
+      // Phase 2 (after Sr): single read header 0xF3, A3, then DATA
+      assert(dut.snifByte0.toInt == 0xF3, f"phase2 byte0=0x${dut.snifByte0.toInt}%02X, expected 0xF3 (11110 11 1)")
+      assert(!dut.snifAck0.toBoolean, "previously-addressed slave must ACK A3 (Fig 15)")
+      assert(dut.snifByte1.toInt == data(0),
+        s"first byte after A3 must be data, got 0x${dut.snifByte1.toInt}%02X (F-S2 guard)")
+      assert(!dut.snifAck1.toBoolean, "master must ACK the first read data byte")
     }
   }
 
@@ -1731,6 +1754,9 @@ class I2cAutoSim extends AnyFunSuite {
         val rxVal = bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
         assert(rxVal == readData(i), f"RX[$i]=0x${rxVal}%02X exp 0x${readData(i)}%02X")
       }
+      // Fig 15 composite frame: S, F2 A1, BC A2, data, Sr, F3 A3, data, P
+      // — one START + one repeated START, one STOP.
+      assertWireClean(dut, expectStarts = 2, expectStops = 1)
     }
   }
 
@@ -1770,6 +1796,9 @@ class I2cAutoSim extends AnyFunSuite {
       val ram5 = dut.slave.ram.getBigInt(5).toInt
       assert(List(ram3, ram4, ram5) == List(0xAA, 0xBB, 0xCC),
              s"RAM[3..5]=${List(ram3, ram4, ram5).map(v => f"0x$v%02X")} (expected AA BB CC)")
+      // Frame: S, F2 A1, BC A2, Sr(read), F3 A3, data, Sr(P2), F2 A1, BC A2, data, P
+      // — three STARTs, one STOP.
+      assertWireClean(dut, expectStarts = 3, expectStops = 1)
     }
   }
 

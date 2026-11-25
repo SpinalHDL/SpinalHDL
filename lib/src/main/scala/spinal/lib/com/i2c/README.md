@@ -305,7 +305,7 @@ Key properties (guaranteed by the factory-side binding):
 | `readAsync` write-first warning | Benign: FIFO/RAM reads and writes never target the same address in the same cycle (see code comments at the `Mem` declarations) |
 | FIFO bounds | Simulation asserts catch TX/RX FIFO underflow (pop on empty) and overflow (push on full); unsynthesizable guards, active in sim only |
 | Pre-START bus-free check (UM10204 §3.1.8 AR-1) | Partial: the master rejects a CMD issued while it observes the external bus busy (`errCode=5` BUSY_REJECTED, tracked from START/STOP edges seen after the first accepted transfer). A late JOINER onto an already-active bus still has no re-synchronization path — a documented deviation |
-| 10-bit header acknowledgement (UM10204 §3.1.11 A1/A3) | Fixed: the slave ACKs the first header byte only when the `A9:A8` upper nibble matches its own address (previously it ACKed any `11110` prefix, letting one 10-bit slave swallow another slave's header); read-direction headers are not ACKed on byte 0 — the master proceeds and the authoritative NACK check sits on the last address byte |
+| 10-bit header acknowledgement (UM10204 §3.1.11 A1/A3) | Fixed: the slave ACKs the first header byte only when the `A9:A8` upper nibble matches its own address and R/W=0 (write header); after a Repeated START, the slave previously addressed in this frame answers the single read-header byte (11110 A9 A8 R/W=1) with A3 and enters the read data phase (Fig 15: one header byte after Sr, not two); non-addressed slaves NACK read-direction headers silently |
 | Arbitration test topology | Covered both ways: SDA-injection tests the LOSER side (passive exit, `errCode=4`); the dual-master contest topology ("0x10 vs 0x30" and mirrored "swapped addresses") verifies the on-wire content decides the winner (lower address wins, §3.1.8 AR-4/5/6/7/11) and that swapping the instances swaps the winner |
 | Speed envelope | All tests run at `tLow=tHigh=20` @100 MHz (≈2.5 MHz SCL) plus the slow-rate smokes above; no test exercises the electrical (ns-voltage) budgets of Tables 9/10 — simulation is purely functional |
 | START/STOP setup/hold (UM10204 Table 25) | Configuration-dependent: `TSU:STA`/`TSU:STO` = `tSegQ = max(tLow/4,1)` ticks; firmware must size `tLow` per the [Timing Compliance](#timing-compliance-firmware-sizing) section. No hardware floor is applied (spec minima are time-based, dependent on clk/sampDiv) |
@@ -338,7 +338,7 @@ Additional specification-conformance coverage:
   asserts zero violations plus exact START/STOP edge counts where meaningful
 - **Slow-rate smokes**: basic write+read at Std (`tLow/tHigh`=130/60),
   Fast (32/16) and Fast-mode Plus (10/10 — deliberately stresses the
-  6-cycle filter window) timings
+  3-sample unanimous filter window) timings
 - **Glitch immunity**: a 1-cycle SDA glitch during SCL-Low is absorbed by the
   3-sample filter (data intact, no spurious START/STOP)
 - **Busy rejection (errCode=5)**: a CMD issued while a transfer is active or

@@ -353,29 +353,53 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
     val latP2AddrValid = RegInit(False)
 
     // Derived
-    val dataStart    = U(addrBytes, 9 bits)
+    // UM10204 §3.1.11 Fig 15: a 10-bit READ phase inserts a repeated START
+    // after the 2-byte write header, then ONE read-header byte
+    // (11110 A9 A8 R/W=1, acknowledge A3) before the data — so it spans
+    // addrBytes+1 address-phase bytes. (The spec's opening sentence suggests
+    // two header bytes after Sr; the figure and the i2c-bus.org protocol
+    // description show one. Ruling recorded in
+    // docs/i2c-auto-um10204-conformance-review.md, F-M2.)
+    val tenBitReadPhase = Bool()
+    tenBitReadPhase := Bool(c.support10bit) && curRw
+    val dataStart    = Mux(tenBitReadPhase, U(addrBytes + 1, 9 bits), U(addrBytes, 9 bits))
+    // A phase-2 that is a 10-bit READ (phase 1 was a write: latRw=False):
+    // the phase-transition RESTART doubles as Fig 15's read Sr, so the write
+    // header + low byte are NOT re-sent — the read header (byte 2) is the
+    // first byte after Sr. A 10-bit write phase-2 still re-sends its full
+    // 2-byte write header after Sr.
+    val p2TenBitRead = Bool(c.support10bit) && !latRw
     val isAddrByte   = byteNum < dataStart
-    val isLastAddrByte = byteNum === U(addrBytes - 1, 8 bits)
+    val isLastAddrByte = byteNum === (dataStart - U(1))
     val isAckBit     = bitPos === U(BITS_PER_BYTE)
     val isLastByte   = byteNum === (dataStart - U(1)) + curLen
 
     val driveSda: Bool = Mux(isAckBit, Mux(isAddrByte, False, curRw), isAddrByte || !curRw)
 
     // Address drive logic (compile-time selected to avoid out-of-bounds in 7-bit mode)
-    // 10-bit frame format per I2C spec (UM10204 §4.2.2 / IEC 60197):
-    //   byte 0: 1 1 1 1 0 A9 A8 R/W
+    // 10-bit frame format per I2C spec (UM10204 §3.1.11, Fig 14/15):
+    //   byte 0: 1 1 1 1 0 A9 A8 R/W=0    (write header, both directions)
     //   byte 1: A7 A6 A5 A4 A3 A2 A1 A0
+    //   byte 2 (READ only, after Sr): 11110 A9 A8 R/W=1  (read header, A3)
     // Cross-slave RESTART (CMD_P2): phase 2 may address a different slave;
-    // p2AddrValid=0 repeats the phase-1 address (legacy behaviour).
+    // p2AddrValid=0 repeats the phase-1 address (legacy behaviour). A 10-bit
+    // read header always carries THIS phase's effAddr (spec: A3 matches only
+    // a slave already addressed by this phase's write header).
     val effAddr = Mux(phase === U(1) && latP2AddrValid, latP2Addr, latAddr)
     val addrDrive: Bool = if (c.support10bit) {
       val tenBitByte0: Bool = Mux(bitPos(2 downto 0) <= U(3), True,           // b7..b4 = 1111
                                    Mux(bitPos(2 downto 0) === U(4), False,    // b3 = 0
                                      Mux(bitPos(2 downto 0) === U(5), effAddr(9),  // b2 = A9
                                        Mux(bitPos(2 downto 0) === U(6), effAddr(8), // b1 = A8
-                                           curRw))))                          // b0 = R/W
+                                           False))))                         // b0 = R/W=0 (write header)
       val tenBitByte1: Bool = effAddr(7 - bitPos(2 downto 0))                 // b7..b0 = A7..A0
-      Mux(byteNum === U(0), tenBitByte0, tenBitByte1)
+      val tenBitByte2: Bool = Mux(bitPos(2 downto 0) <= U(3), True,           // b7..b4 = 1111
+                                   Mux(bitPos(2 downto 0) === U(4), False,    // b3 = 0
+                                     Mux(bitPos(2 downto 0) === U(5), effAddr(9),  // b2 = A9
+                                       Mux(bitPos(2 downto 0) === U(6), effAddr(8), // b1 = A8
+                                           True))))                          // b0 = R/W=1 (read header)
+      Mux(byteNum === U(0), tenBitByte0,
+        Mux(tenBitReadPhase && byteNum === U(2), tenBitByte2, tenBitByte1))
     } else {
       Mux(bitPos(2 downto 0) === U(7), curRw, effAddr(6 - bitPos(2 downto 0)))
     }
@@ -506,7 +530,7 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
                       // phase decides completion (a zero-length phase 2
                       // converges here with phase === U(1)).
                       phase   := U(1)
-                      byteNum := U(0)
+                      byteNum := Mux(p2TenBitRead, U(addrBytes, 9 bits), U(0, 9 bits))
                       bitPos  := U(0)
                       curLen  := latP2ByteCount
                       curRw   := !latRw
@@ -527,15 +551,21 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
                   }
                 }
               } otherwise {
-                // Intermediate address byte (10-bit mode): continue.
-                // §3.1.11 A1/A3: a read-direction header (R/W=1) is NOT
-                // acknowledged on this byte — the addressed slave answers
-                // the SECOND byte after Sr. Aborting here (as a NACK) broke
-                // every 10-bit read. The authoritative address ACK/NACK
-                // check stays on the LAST address byte below.
-                byteNum := byteNum + U(1)
-                bitPos  := U(0)
-                goto(BIT_LOW)
+                // Intermediate address byte: the A2 slot of the 10-bit WRITE
+                // header. A 10-bit READ continues with a repeated START here
+                // (Fig 15), followed by the single read-header byte and A3;
+                // a 10-bit WRITE just continues to the low address byte.
+                // (The Sr triggers on the LOW byte, dataStart-2 — firing it
+                // after the write header would drop the low address byte.)
+                when(tenBitReadPhase && byteNum === (dataStart - U(2, 9 bits))) {
+                  byteNum := dataStart - U(1)  // read-header slot
+                  bitPos  := U(0)
+                  goto(RESTART0)
+                } otherwise {
+                  byteNum := byteNum + U(1)
+                  bitPos  := U(0)
+                  goto(BIT_LOW)
+                }
               }
             } otherwise {
               when(curRw) {
@@ -550,7 +580,7 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
                 when(isLastByte) {
                   when(latHasP2 && phase === U(0)) {
                     phase   := U(1)
-                    byteNum := U(0)
+                    byteNum := Mux(p2TenBitRead, U(addrBytes, 9 bits), U(0, 9 bits))
                     bitPos  := U(0)
                     curLen  := latP2ByteCount
                     curRw   := !latRw
@@ -596,7 +626,14 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
         sclDrive := False  // drop SCL to let slave release SDA
         sdaEn    := True
         sdaDrive := True
-        when(timerDone) { goto(RESTART1) }
+        // Hold SCL Low until the wire SDA is confirmed High: a filtering
+        // slave releases its last ACK a few filter samples after the SCL
+        // fall; raising SCL before SDA goes High would shape the Repeated
+        // START as a STOP+START pair — the slave's STOP handler would drop
+        // frame context (a 10-bit slave would lose "already addressed" and
+        // NACK A3) and edge counters would see a spurious STOP. The global
+        // watchdog bounds a misbehaving slave that never releases.
+        when(timerDone && sdaFilt) { goto(RESTART1) }
       }
     }
 
@@ -816,8 +853,9 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
   * Samples the raw (externally-driven) SCL/SDA through a 2-FF synchronizer,
   * then advances a `sampWinSize`-bit history register every `sampDiv` clocks.
   * The filtered output updates only when the ENTIRE window is unanimous
-  * (`andR || nandR`), guaranteeing that a transient narrower than the
-  * window cannot propagate.
+  * (all-1 -> True, all-0 -> False), so a transient narrower than the window
+  * (`sampWinSize` ticks) cannot propagate. Firmware must size sampDiv x
+  * sampWinSize to cover Table 9 tSP where spike immunity is required.
   *
   * NOTE: This is NOT timing-equivalent to [[I2cIoFilter]] (used by the legacy
   * I2CSlave/I2cCtrl family). The window indexing and assigned value differ by
@@ -847,7 +885,12 @@ class I2cWireConditioner(
   when(timer.tick) {
     sclHist := Cat(sclSync, sclHist(sampWinSize - 2 downto 0))
     sdaHist := Cat(sdaSync, sdaHist(sampWinSize - 2 downto 0))
-    when(sclHist.andR || sclHist.nandR) { sclFilt := sclSync }
-    when(sdaHist.andR || sdaHist.nandR) { sdaFilt := sdaSync }
+    // Unanimous-window update: move the filtered wire only when the whole
+    // window (including the newest sample) agrees. (The former
+    // `andR || nandR` condition was a tautology — the window was dead code.)
+    when(sclHist.andR)         { sclFilt := True }
+      .elsewhen(sclHist.nandR) { sclFilt := False }
+    when(sdaHist.andR)         { sdaFilt := True }
+      .elsewhen(sdaHist.nandR) { sdaFilt := False }
   }
 }

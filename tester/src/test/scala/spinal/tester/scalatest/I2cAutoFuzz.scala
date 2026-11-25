@@ -19,9 +19,12 @@ import scala.util.Random
   */
 class I2cAutoFuzz extends AnyFunSuite {
 
-  class FuzzTop extends Component {
-    val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, timerWidth = 12))
-    val slave  = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64).toSeq))
+  class FuzzTop(support10bit: Boolean = false) extends Component {
+    // Master CMD register layout is {nackLast, phase2, rw, addr[addrW-1:0]};
+    // issueCmd needs the address width to pack it.
+    val addrW: Int = if (support10bit) 10 else 7
+    val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = support10bit, timerWidth = 12))
+    val slave  = new I2cAutoSlave(I2cAutoSlave.Config(validAddrs = (0 until 64).toSeq, support10bit = support10bit))
 
     val sclWire = master.io.i2c.scl.write && slave.io.i2c.scl.read
     master.io.i2c.scl.read := sclWire
@@ -60,9 +63,10 @@ class I2cAutoFuzz extends AnyFunSuite {
                byteCount: Int, p2ByteCount: Int = 0): Unit = {
     bmbWrite(dut.masterRegBus, 0x04, byteCount, cd)
     bmbWrite(dut.masterRegBus, 0x0C, p2ByteCount, cd)
-    val data = (if (nackLast) 1 else 0) << 9 |
-               (if (phase2)   1 else 0) << 8 |
-               (if (rw)       1 else 0) << 7 |
+    val aW = dut.addrW
+    val data = (if (nackLast) 1 else 0) << (aW + 2) |
+               (if (phase2)   1 else 0) << (aW + 1) |
+               (if (rw)       1 else 0) << aW |
                addr
     bmbWrite(dut.masterRegBus, 0x00, data, cd)
   }
@@ -295,7 +299,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         // every remaining byte = 0xFF (the RAM fill for slots 1..63).
         if (rx.size != len || rx.head != expectedFirst || rx.drop(1).exists(_ != 0xFF)) {
           bad = true
-          if (failures <= 5) println(s"  iter=$iter len=$len got=${rx.take(8).map(b => f"0x$b%02X").mkString(",")}... count=${rx.size} expHead=0x${expectedFirst}%02X")
+          if (failures <= 5) println(s"  iter=$iter len=$len got=${rx.take(8).map(b => f"0x$b%02X").mkString(",")}... count=${rx.size} expHead=0x${expectedFirst.toHexString}")
         }
 
         if (bad) failures += 1
@@ -452,7 +456,7 @@ class I2cAutoFuzz extends AnyFunSuite {
           val got = dut.slave.ram.getBigInt(rLen + i).toInt
           if (got != writeData(i)) {
             bad = true
-            if (failures <= 5) println(s"  iter=$iter r=$rLen w=$wLen RAM[${rLen + i}]=0x${got}%02X exp=0x${writeData(i)}%02X")
+            if (failures <= 5) println(s"  iter=$iter r=$rLen w=$wLen RAM[${rLen + i}]=0x${got.toHexString} exp=0x${writeData(i).toHexString}")
           }
         }
 
@@ -506,7 +510,7 @@ class I2cAutoFuzz extends AnyFunSuite {
           val got = dut.slave.ram.getBigInt(i).toInt
           if (got != writeData(i)) {
             bad = true
-            if (failures <= 5) println(s"  iter=$iter len=$len nl=$nackLast RAM[$i]=0x${got}%02X exp=0x${writeData(i)}%02X")
+            if (failures <= 5) println(s"  iter=$iter len=$len nl=$nackLast RAM[$i]=0x${got.toHexString} exp=0x${writeData(i).toHexString}")
           }
         }
 
@@ -515,6 +519,72 @@ class I2cAutoFuzz extends AnyFunSuite {
       }
 
       assert(failures == 0, s"$failures/50 nackLast-toggled write iterations failed")
+    }
+  }
+
+  // 10-bit traffic (conformance map F-T5): the fuzz suite was 7-bit-only,
+  // so the 10-bit read chain (master Fig 15 frame, slave A3 state) was
+  // invisible to randomization. Random write+read composites through a
+  // 10-bit master+slave; verifies BOTH phases (write RAM readback included).
+  test("I2cAuto fuzz: 20 random 10-bit composite (write+read RESTART)") {
+    val rng = new Random(10204L)
+    var failures = 0
+
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new FuzzTop(support10bit = true)).doSim { dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10 ns)
+
+      cfgTiming(cd, dut)
+      // 10-bit address 0x1BC: ADDR register is {matchEn[10], addr[9:0]}
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x1BC))
+      cd.waitActiveEdge(10)
+
+      for (iter <- 1 to 20) {
+        val wLen = 1 + rng.nextInt(8)   // write 1-8 bytes
+        val rLen = 1 + rng.nextInt(8)   // read 1-8 bytes
+        val writeData = (0 until wLen).map(_ => rng.nextInt(256))
+        val readExpect = (0 until rLen).map(_ => rng.nextInt(256))
+
+        for (i <- 0 until 64) {
+          val v = if (i >= wLen && i < wLen + rLen) readExpect(i - wLen) else 0x00
+          dut.slave.ram.setBigInt(i, v)
+        }
+        regWrite(dut, isMaster = false, addr = 0x04, data = 0)
+        cd.waitActiveEdge(5)
+
+        for (d <- writeData) { pushTx(cd, dut, d) }
+
+        issueCmd(cd, dut, addr = 0x1BC, rw = false, phase2 = true, nackLast = true,
+                 byteCount = wLen, p2ByteCount = rLen)
+
+        var bad = false
+        val ok = waitForIdle(cd, dut)
+        if (!ok) { bad = true; if (failures <= 3) println(s"  iter=$iter w=$wLen r=$rLen TIMEOUT") }
+
+        val err = dut.master.status.errCode.toInt
+        if (err != 0) { bad = true; if (failures <= 3) println(s"  iter=$iter w=$wLen r=$rLen ERR=$err") }
+
+        // Read phase: exact payload
+        val rx = drainRx(cd, dut)
+        if (rx.size != rLen || rx.zip(readExpect).exists { case (a, b) => a != b }) {
+          bad = true
+          if (failures <= 5) println(s"  iter=$iter w=$wLen r=$rLen rx=${rx.take(4)} exp=${readExpect.take(4)}")
+        }
+        // Write phase: RAM readback (pins F-T4 for the new 10-bit test)
+        for (i <- 0 until wLen) {
+          val got = dut.slave.ram.getBigInt(i).toInt
+          if (got != writeData(i)) {
+            bad = true
+            if (failures <= 5) println(s"  iter=$iter w=$wLen r=$rLen RAM[$i]=0x${got.toHexString} exp=0x${writeData(i).toHexString}")
+          }
+        }
+
+        if (bad) failures += 1
+        resetBetweenIter(cd, dut)
+      }
+
+      assert(failures == 0, s"$failures/20 10-bit composite iterations failed")
     }
   }
 }
