@@ -29,8 +29,10 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
   * map.
   *
   * Register map (byte addresses, 32-bit data width; bit offsets shift with addrW=7/10):
-  *   0x00  CMD          W: {nackLast[addrW+2], hasPhase2[addrW+1], rw[addrW], addr[addrW-1:0]}
-  *                       (fields + trigger land atomically on the bus write handshake)
+  *   0x00  CMD          W: {reserved(nackLast)[addrW+2], hasPhase2[addrW+1], rw[addrW], addr[addrW-1:0]}
+  *                       (fields + trigger land atomically on the bus write handshake; the
+  *                       nackLast bit position is reserved / write-ignored — the master always
+  *                       NACKs the last read byte before STOP/Sr, UM10204 §3.1.6/§3.1.10)
   *   0x04  BYTE_COUNT   W: phase-1 data byte count
   *   0x08  CMD_P2       RW: {valid[addrW], p2Addr[addrW-1:0]} — optional phase-2
   *                       address: when phase2=1 and valid, phase 2 is addressed
@@ -291,6 +293,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   req.payload.addr        := io.cmd.addr
   req.payload.rw          := io.cmd.rw
   req.payload.phase2      := io.cmd.phase2
+  // The reserved CMD.nackLast bit is forwarded for bundle compatibility only;
+  // the engine ignores it (last-read-byte NACK is mandatory, see controller).
   req.payload.nackLast    := io.cmd.nackLast
   req.payload.byteCount   := io.cmd.byteCount
   req.payload.p2ByteCount := io.cmd.p2ByteCount
