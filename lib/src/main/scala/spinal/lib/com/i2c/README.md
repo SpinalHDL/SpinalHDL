@@ -57,7 +57,7 @@ values and event pulses. Any bus family whose slave factory extends
 
 | Offset | Name | Access | Description |
 |--------|------|--------|-------------|
-| 0x00 | CMD | WO | `{nackLast[addrW+2], phase2[addrW+1], rw[addrW], addr[addrW-1:0]}` — fields + trigger land atomically on the write handshake |
+| 0x00 | CMD | WO | `{reserved(nackLast)[addrW+2], phase2[addrW+1], rw[addrW], addr[addrW-1:0]}` — fields + trigger land atomically on the write handshake. The `nackLast` bit is reserved (write-ignored): the master always NACKs the last read byte before STOP/Sr (UM10204 §3.1.6/§3.1.10) |
 | 0x04 | BYTE_COUNT | WO | Phase-1 data byte count |
 | 0x08 | CMD_P2 | RW | Phase-2 address for cross-slave RESTART composites: `{valid[addrW], p2Addr[addrW-1:0]}`. Writing never triggers a transfer. `valid=1`: phase 2 addresses `p2Addr`; `valid=0`: legacy behavior (phase 2 repeats the phase-1 address) |
 | 0x0C | P2_BYTE_COUNT | WO | Phase-2 data byte count |
@@ -114,11 +114,11 @@ values and event pulses. Any bus family whose slave factory extends
 Set `phase2=1` in CMD to perform an atomic write→RESTART→read:
 - `rw` + `byteCount`: Phase 1 (typically write address/pointer)
 - `p2ByteCount`: Phase 2 (read data)
-- `nackLast`: NACK the last byte of phase 2 (standard I2C read termination)
+- Last-read-byte NACK: **mandatory, not configurable** — the master always NACKs the last data byte of a read phase (before STOP, or before the Repeated START in a read→write composite), per UM10204 §3.1.6/§3.1.10. The former `nackLast` CMD bit keeps its register position as reserved (write-ignored), so the register layout and existing firmware are unchanged
 
 Example: Write 1-byte pointer, then read 4 bytes:
 ```
-CMD = {p2ByteCount=4, byteCount=1, nackLast=1, phase2=1, rw=0, addr=0x28, trigger=1}
+CMD = {p2ByteCount=4, byteCount=1, phase2=1, rw=0, addr=0x28, trigger=1}
 TX FIFO: [pointer_byte]
 ```
 

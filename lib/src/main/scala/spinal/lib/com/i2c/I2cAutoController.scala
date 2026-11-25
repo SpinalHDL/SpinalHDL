@@ -357,7 +357,6 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
     val latAddr     = Reg(Bits(addrW bits)) init(0)
     val latRw       = RegInit(False)
     val latHasP2    = RegInit(False)
-    val latNackLast = RegInit(False)
     val latP2ByteCount     = Reg(UInt(8 bits)) init(0)
     val latP2Addr      = Reg(Bits(addrW bits)) init(0)
     val latP2AddrValid = RegInit(False)
@@ -414,8 +413,13 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
       Mux(bitPos(2 downto 0) === U(7), curRw, effAddr(6 - bitPos(2 downto 0)))
     }
 
+    // F-M7 (UM10204 §3.1.6/§3.1.10): the master ALWAYS NACKs the last data
+    // byte of a read phase (SDA High on its 9th clock), whether the phase
+    // ends at STOP or at a Repeated START. The legacy CMD.nackLast bit is
+    // reserved (write-ignored); only read data bytes reach this branch — in
+    // write phases the slave owns the ACK slot (driveSda = curRw = False).
     val sdaValue: Bool = Mux(isAckBit,
-      Mux(latNackLast && isLastByte && !(latHasP2 && !curRw), True, False),
+      isLastByte && curRw,
       Mux(isAddrByte, addrDrive, txByte(7 - bitPos(2 downto 0)))
     )
 
@@ -433,7 +437,6 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
           latAddr     := io.req.payload.addr
           latRw       := io.req.payload.rw
           latHasP2    := io.req.payload.phase2
-          latNackLast := io.req.payload.nackLast
           latP2ByteCount     := io.req.payload.p2ByteCount
           latP2Addr      := io.req.payload.p2Addr
           latP2AddrValid := io.req.payload.p2AddrValid

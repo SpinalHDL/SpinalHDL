@@ -274,6 +274,9 @@ class I2cAutoFuzz extends AnyFunSuite {
       for (iter <- 1 to 50) {
         val len = 1 + rng.nextInt(16)  // 1..16 for speed
         val expectedFirst = rng.nextInt(256)
+        // Reserved bit (F-M7): both values must behave identically - the
+        // master always NACKs the last read byte before STOP.
+        val nackLast = rng.nextBoolean()
 
         // Pre-load slave RAM with identifiable pattern
         for (i <- 0 until 64) {
@@ -283,23 +286,23 @@ class I2cAutoFuzz extends AnyFunSuite {
         cd.waitActiveEdge(5)
 
         // Trigger read
-        issueCmd(cd, dut, addr = 0x28, rw = true, nackLast = true, byteCount = len)
+        issueCmd(cd, dut, addr = 0x28, rw = true, nackLast = nackLast, byteCount = len)
 
         // Per-iteration failure tracking: one bad iteration counts as 1,
         // regardless of how many sub-checks (timeout/err/rx) it trips.
         var bad = false
         val ok = waitForIdle(cd, dut)
-        if (!ok) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len TIMEOUT") }
+        if (!ok) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len nl=$nackLast TIMEOUT") }
 
         val err = dut.master.status.errCode.toInt
-        if (err != 0) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len ERR=$err") }
+        if (err != 0) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len nl=$nackLast ERR=$err") }
 
         val rx = drainRx(cd, dut)
         // Full-payload check (#23): exact length, first byte = pattern seed,
         // every remaining byte = 0xFF (the RAM fill for slots 1..63).
         if (rx.size != len || rx.head != expectedFirst || rx.drop(1).exists(_ != 0xFF)) {
           bad = true
-          if (failures <= 5) println(s"  iter=$iter len=$len got=${rx.take(8).map(b => f"0x$b%02X").mkString(",")}... count=${rx.size} expHead=0x${expectedFirst.toHexString}")
+          if (failures <= 5) println(s"  iter=$iter len=$len nl=$nackLast got=${rx.take(8).map(b => f"0x$b%02X").mkString(",")}... count=${rx.size} expHead=0x${expectedFirst.toHexString}")
         }
 
         if (bad) failures += 1

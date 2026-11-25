@@ -716,6 +716,104 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
+  test("I2cAuto: mandatory last-read-byte NACK before STOP, config-independent (UM10204 sec. 3.1.6 / 3.1.10, F-M7)") {
+    // A master-receiver MUST NACK the last data byte of a read (SDA High on
+    // its 9th clock) before STOP - unconditionally. The legacy CMD.nackLast=0
+    // configuration ACKed that byte instead, which is non-conformant and left
+    // the slave driving the next byte into the STOP edge. The bit keeps its
+    // register position as reserved (write-ignored); the master now always
+    // NACKs. Verified as wire golden vectors from the per-START sniffer
+    // (independent of master internals - defeats the loopback self-consistency
+    // trap), for BOTH values of the reserved bit.
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      dut.slave.ram.setBigInt(0, 0x42)
+
+      cd.waitActiveEdge(10)
+
+      // Transfer A: the legacy "nackLast=0" configuration (used to ACK the
+      // last read byte here).
+      dut.issueCmd(addr = 0x28, rw = true, nackLast = false, byteCount = 1)
+      waitForIdle(dut)
+      cd.waitActiveEdge(5)
+      var rx = List(bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF)
+      assert(rx == List(0x42), s"transfer A: RX=$rx, expected List(0x42)")
+      assert(dut.master.status.errCode.toInt == 0,
+        s"transfer A: errCode=${dut.master.status.errCode.toInt}, expected 0")
+      assert(dut.snifByte0.toInt == 0x51, f"transfer A: snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0x51 (addr 0x28, R/W=1)")
+      assert(!dut.snifAck0.toBoolean, "transfer A: slave must ACK the read header (SDA Low)")
+      assert(dut.snifByte1.toInt == 0x42, f"transfer A: snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0x42 (slave-driven data)")
+      assert(dut.snifAck1.toBoolean,
+        "transfer A: last read byte must be NACKed (SDA High on its 9th clock) before STOP despite the reserved CMD.nackLast=0 bit (UM10204 sec. 3.1.6 / 3.1.10)")
+
+      // Transfer B: reserved bit = 1 - the wire must be identical.
+      dut.regWriteSlave(0x04, 0)
+      dut.slave.ram.setBigInt(0, 0x43)
+      cd.waitActiveEdge(10)
+      dut.issueCmd(addr = 0x28, rw = true, nackLast = true, byteCount = 1)
+      waitForIdle(dut)
+      cd.waitActiveEdge(5)
+      rx = List(bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF)
+      assert(rx == List(0x43), s"transfer B: RX=$rx, expected List(0x43)")
+      assert(dut.master.status.errCode.toInt == 0,
+        s"transfer B: errCode=${dut.master.status.errCode.toInt}, expected 0")
+      assert(dut.snifByte0.toInt == 0x51, f"transfer B: snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0x51")
+      assert(!dut.snifAck0.toBoolean, "transfer B: slave must ACK the read header (SDA Low)")
+      assert(dut.snifByte1.toInt == 0x43, f"transfer B: snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0x43")
+      assert(dut.snifAck1.toBoolean,
+        "transfer B: last read byte must be NACKed (SDA High) before STOP regardless of the reserved CMD.nackLast bit (UM10204 sec. 3.1.6 / 3.1.10)")
+      assertWireClean(dut, expectStarts = 2, expectStops = 2)
+    }
+  }
+
+  test("I2cAuto: mandatory last-read-byte NACK before Sr in read->write composite (UM10204 sec. 3.1.10 Fig 13, F-M7)") {
+    // Fig 13 form of the mandate: the phase-1 (read) last byte is NACKed on
+    // its 9th clock BEFORE the Repeated START, regardless of the reserved
+    // CMD.nackLast bit. The phase-1 capture is the snifP1* latch taken at the
+    // Sr edge (the per-START sniffer re-arms on Sr).
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      dut.slave.ram.setBigInt(0, 0x77)
+
+      cd.waitActiveEdge(10)
+
+      // Legacy "nackLast=0" configuration: read 1 byte, Sr, write 1 byte.
+      pushTx(dut, 0x99)
+      dut.issueCmd(addr = 0x28, rw = true, phase2 = true, nackLast = false, byteCount = 1, p2ByteCount = 1)
+      waitForIdle(dut)
+
+      cd.waitActiveEdge(5)
+      val rx = List(bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF)
+      assert(rx == List(0x77), s"RX=$rx, expected List(0x77)")
+      assert(dut.master.status.errCode.toInt == 0,
+        s"errCode=${dut.master.status.errCode.toInt}, expected 0")
+      // Phase 1 (before Sr): read header ACKed, then the last (only) read
+      // byte NACKed on its 9th clock.
+      assert(dut.snifP1Byte0.toInt == 0x51, f"snifP1Byte0=0x${dut.snifP1Byte0.toInt}%02X, expected 0x51 (read header)")
+      assert(!dut.snifP1Ack0.toBoolean, "slave must ACK the phase-1 read header (SDA Low)")
+      assert(dut.snifP1Byte1.toInt == 0x77, f"snifP1Byte1=0x${dut.snifP1Byte1.toInt}%02X, expected 0x77")
+      assert(dut.snifP1Ack1.toBoolean,
+        "phase-1 last read byte must be NACKed (SDA High) before the Repeated START despite the reserved CMD.nackLast=0 bit (UM10204 sec. 3.1.10 Fig 13)")
+      // Phase 2 (after Sr): write header ACKed, byte stored at the continued
+      // dataPtr slot.
+      assert(dut.snifByte0.toInt == 0x50, f"snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0x50 (write header)")
+      assert(!dut.snifAck0.toBoolean, "slave must ACK the phase-2 write header (SDA Low)")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0x99,
+        "phase-2 write must land at RAM[1] (dataPtr continues past the NACKed read byte)")
+      assertWireClean(dut, expectStarts = 2, expectStops = 1)
+    }
+  }
+
   test("I2cAuto: composite write-then-read with RESTART") {
     runSim { dut =>
       val cd = dut.clockDomain
