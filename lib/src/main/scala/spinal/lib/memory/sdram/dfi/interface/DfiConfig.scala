@@ -27,9 +27,19 @@ case class DfiTimeConfig(
     tPhyRdCslat: Int,
     // specify the desired alignment of the command to the
     // dfi_rddata_cs_n signal
-    tPhyRdCsGap: Int
+    tPhyRdCsGap: Int,
     // specify the additional delay it
     // requires between two consecutive commands that are targeting different chip selects.
+    // DFI 6.0.1 Table 48 ctrlmsg timing: tctrlmsg_resp = max cycles from dfi_ctrlmsg_req
+    // assertion to dfi_ctrlmsg_ack assertion (spec min 1), tctrlmsg_max = max cycles
+    // dfi_ctrlmsg_ack may stay asserted (MC-defined; this MC picks 16).
+    tCtrlMsgResp: Int = 1,
+    tCtrlMsgMax: Int = 16,
+    // P3 legacy write-leveling: MC-defined watchdog window (cycles) for the dfi_wrlvl_resp
+    // (wrLvlDone) rising edge after dfi_wrlvl_en assertion. No DFI timing parameter exists
+    // for this (the PHY delay-search length is PHY-internal); the MC only bounds a hung PHY
+    // — same record-and-expose flavor as tctrlmsg_resp, no retry.
+    tWrlvlResp: Int = 16
 ) {}
 
 case class DfiFunctionConfig(
@@ -125,6 +135,16 @@ class DfiSignalConfig(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useC
   val useError: Boolean = false
   val useErrorInfo: Boolean = false
 
+  // DFI 6.0.1 Table 12 ctrlmsg channel (dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req/
+  // dfi_ctrlmsg_ack): off by default — the four wires, the CtrlMsgArbiter and the trainBusy
+  // spawn/refresh gates exist only when this is set.
+  val useCtrlMsg: Boolean = false
+
+  // P3 legacy (DDR2/DDR3) write-leveling Stream handshake (dfi_wrlvl_en / dfi_wrlvl_resp MC
+  // window): off by default — the LegacyWrLvlHandshake component, the separate io.dfiWrLvl
+  // port and the trainBusy gates exist only when this is set.
+  val useLegacyWrLvl: Boolean = false
+
   val useStatusSignals = groupConfig.useStatusSignals
 
   def useCtrlupd = useCtrlupdReq & useCtrlupdAck
@@ -215,7 +235,23 @@ case class DfiConfig(
     dataSlice: Int,
     signalConfig: DfiSignalConfig,
     timeConfig: DfiTimeConfig,
-    sdram: SdramConfig
+    sdram: SdramConfig,
+    // DDR4 mode register file programmed at init; MR5 A12=Read DBI, A11=Write DBI,
+    // A10=Data Mask (JESD79-4B §4.11). This controller never drives DM (wrDataMask is a
+    // pass-through of the BMB mask, all-ones when unmapped), so no DM/DBI mutual-exclusion
+    // is enforced here: the integrator must not enable both at the SDRAM level.
+    ddr4ModeRegs: Ddr4ModeRegs = Ddr4ModeRegs(),
+    // Optional init micro-program (step table) for the generic SdramInitSequencer in MakeTask.
+    // None: DDR4 keeps its built-in Ddr4InitSequencer preset, every other generation runs
+    // init-less exactly as before (no engine, no new bus drivers). Some(List(...)): the engine
+    // plays those steps before any user traffic, for any generation whose CmdTxd can encode
+    // MRS/ZQ (DDR3/DDR2 legacy path included).
+    initSteps: Option[List[SdramInitStep]] = None,
+    // P2 boot training orchestrator: after the init engine's initDone, auto-chain ZQCAL ->
+    // WRLVL through the ctrlmsg channel (CtrlMsgArbiter) and pulse bootTrainDone. Requires
+    // signalConfig.useCtrlMsg (the channel must exist). Default false = no BootTrainer, no
+    // wires, no gates — pre-bootTraining configs elaborate byte-identically.
+    bootTraining: Boolean = false
 ) {
   val frequencyRatio = timeConfig.frequencyRatio
   val dataRate = sdram.generation.dataRate
@@ -230,6 +266,9 @@ case class DfiConfig(
   val dataWidth = phyIoWidth
   val addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth)
   val bankWidth = sdram.bankWidth
+  // DFI-side bank (BA) width: the flat task-level bank index minus the bank-group bits.
+  // Legacy generations have bgWidth == 0, so dfiBankWidth == bankWidth (behavior identical).
+  val dfiBankWidth = sdram.bankWidth - sdram.bgWidth
 
   val controlWidth = 1
   val bankGroupWidth = sdram.bgWidth
@@ -255,5 +294,26 @@ case class DfiConfig(
   val levelingPhyIFWidth = dataSlice
   val rankWidth = chipSelectNumber
   val errorNumber = dataSlice + 1
+
+  // NOTE ON GENERATION GATES: DBI_n and CA parity (PAR) are DDR4-era physical pins; DDR1/DDR2/DDR3
+  // SDRAMs have no such pins, so enabling these features on older generations would invent protocol
+  // behavior the silicon cannot honor. The generation checks below are protocol truth, NOT
+  // conservatism — do not relax them to signal-presence-only (legacy signalConfigs map
+  // useStatusSignals -> parityIn/alertN, which would silently turn the features on for DDR3).
+  // The generically reusable knob is the refresh scheduler (SdramTiming REF_NS/REF_RATE),
+  // which carries no generation gate.
+  // DDR4 DBI enable, decoded from MR5 (JESD79-4B §4.11): A12=Read DBI, A11=Write DBI.
+  // Read DBI additionally requires the rddata_dbi_n signal to exist in the signal set.
+  val useRdDbi =
+    sdram.generation == SdramGeneration.DDR4 && signalConfig.useRddataDbiN && ((ddr4ModeRegs.mr5 >> 12) & 1) == 1
+  val useWrDbi = sdram.generation == SdramGeneration.DDR4 && ((ddr4ModeRegs.mr5 >> 11) & 1) == 1
+
+  // DDR4 CA parity (JESD79-4B §4.17 / DFI 6.0.1 §4.3.1): the MC drives dfi_parity (even parity
+  // over ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BA, BG — NOT CKE/ODT/CS_n) in the same
+  // cycle as the command (tcapar_lat = 0, allowed by the spec). Any non-zero MR5.A2:A0 parity
+  // latency (PL4/5/6) means CA parity is enabled at the DRAM; the PL value itself only affects
+  // DRAM-internal timing and is not modeled on the MC side, so the signal-level useParity
+  // (dfi_parity_in + dfi_alert_n present) gates the feature here.
+  val useCaParity = sdram.generation == SdramGeneration.DDR4 && signalConfig.useParity
 
 }
