@@ -11,6 +11,7 @@ case class Field(name: String,
                  readError: Boolean,
                  doc: String){
   private var _name = name
+  private[regif] val createLocation = new Throwable
 
   def tailBitPos = section.max
 
