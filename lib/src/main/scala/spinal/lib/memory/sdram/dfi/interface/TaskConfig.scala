@@ -48,7 +48,7 @@ case class BusAddress(dfiConfig: DfiConfig) extends Bundle {
   val row = UInt(dfiConfig.sdram.rowWidth bits)
   val cs = UInt(log2Up(dfiConfig.chipSelectNumber) bits)
   def getRBCAddress(addr: UInt) = addr(log2Up(dfiConfig.sdram.bytePerWord), dfiConfig.sdram.wordAddressWidth bits)
-  def getButeAddress(addr: UInt) = addr(0, log2Up(dfiConfig.sdram.bytePerWord) bits)
+  def getByteAddress(addr: UInt) = addr(0, log2Up(dfiConfig.sdram.bytePerWord) bits)
   def getCsAddress(addr: UInt) =
     addr(dfiConfig.sdram.byteAddressWidth, log2Up(dfiConfig.chipSelectNumber) bits)
 }
