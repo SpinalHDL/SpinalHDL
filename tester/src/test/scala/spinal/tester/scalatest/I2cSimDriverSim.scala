@@ -36,6 +36,9 @@ class I2cSimDriverSim extends AnyFunSuite {
     pubSlave(slave)
     slave.io.i2c.scl.write := True
     slave.io.i2c.sda.write := True
+    // simPublic taps (repo convention: DUT observation taps live in the
+    // test-source top class — see the note in I2cAutoSlave.scala; without
+    // these ram/flags are UNACCESSIBLE in the simulation).
 
     val regBusParam = BmbAccessParameter(8, 32).addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2)).toBmbParameter()
     val slaveRegBus = spinal.lib.slave(Bmb(regBusParam))
@@ -66,21 +69,22 @@ class I2cSimDriverSim extends AnyFunSuite {
   }
 
   // ---- simPublic taps (published in test sources, keeping the lib sim-free) ----
+  // The I2C pins themselves must be simPublic'd too: OpenDrainInterconnect
+  // assigns to the DUT's input pins (`reader #= level`) and the pin watchers
+  // read the DUT's outputs — subcomponent ports are UNACCESSIBLE without the
+  // tag in the Verilator build.
   private def pubMaster(m: I2cAutoMaster): Unit = {
-    m.status.busy.simPublic(); m.status.errCode.simPublic(); m.status.aborted.simPublic()
-    m.txFifo.io.pop.valid.simPublic(); m.txFifo.io.pop.payload.simPublic(); m.txFifo.io.occupancy.simPublic()
-    m.rxFifo.io.pop.valid.simPublic(); m.rxFifo.io.pop.payload.simPublic(); m.rxFifo.io.occupancy.simPublic()
-    m.fsm.bitPos.simPublic(); m.fsm.byteNum.simPublic(); m.fsm.rxStretch.simPublic()
+    m.io.i2c.scl.read.simPublic(); m.io.i2c.scl.write.simPublic()
+    m.io.i2c.sda.read.simPublic(); m.io.i2c.sda.write.simPublic()
+    m.status.busy.simPublic(); m.status.errCode.simPublic()
   }
 
   private def pubSlave(s: I2cAutoSlave): Unit = {
-    s.stretchActive.simPublic()
+    s.io.i2c.scl.read.simPublic(); s.io.i2c.scl.write.simPublic()
+    s.io.i2c.sda.read.simPublic(); s.io.i2c.sda.write.simPublic()
+    s.inFrame.simPublic()
     s.intr.flags.simPublic()
-    s.dataPtr.simPublic(); s.ram.simPublic()
-    s.tenBitUpper.simPublic(); s.addrByteIdx.simPublic()
-    s.hasStarted.simPublic(); s.inFrame.simPublic()
-    s.sdaOut.simPublic(); s.bitPos.simPublic(); s.inAck.simPublic()
-    s.rxAccum.simPublic(); s.wasAddressed.simPublic(); s.isRead.simPublic()
+    s.ram.simPublic()
   }
 
   // ---- Bmb register-bus helpers (same handshake style as I2cAutoFuzz) ----
@@ -93,23 +97,39 @@ class I2cSimDriverSim extends AnyFunSuite {
   }
 
   def bmbWrite(bus: Bmb, addr: Int, data: Int, cd: ClockDomain): Unit = {
+    // Drain any pending rsp first: while rsp.valid is High, cmd_ready is Low
+    // (stage back-pressure), so a command issued into a pending rsp would
+    // never fire and its side effect would be silently lost.
+    bus.rsp.ready #= true
+    var c = 0
+    while (bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbWrite: rsp never drained (addr=0x${addr.toHexString})")
+    bus.rsp.ready #= false
     bus.cmd.valid   #= true
     bus.cmd.opcode  #= 1   // Bmb WRITE
     bus.cmd.address #= addr
     bus.cmd.length  #= 0
     bus.cmd.data    #= data
     bus.cmd.mask    #= 0xF
-    bus.rsp.ready   #= true
-    cd.waitActiveEdge()
-    var c = 0
-    while (!bus.cmd.ready.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
-    assert(c < 100, s"bmbWrite: cmd not ready (addr=0x${addr.toHexString})")
-    bus.cmd.valid   #= false
+    // Hold cmd.valid until the regmap's rsp register latches it (the load is
+    // one DUT edge after the fire edge). rsp.ready stays Low while holding,
+    // so cmd_ready drops with the latched rsp and the command fires exactly
+    // once (no duplicate onWrite side effects); the rsp valid then stays High
+    // until consumed below. This is robust even when the set lands mid-cycle
+    // (e.g. right after a sleep() while a soft-host engine fork consumes
+    // edges) — a one-cycle-valid pulse can be cleared before the load edge.
     c = 0
     while (!bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
     assert(c < 100, s"bmbWrite: no rsp (addr=0x${addr.toHexString})")
     assert(bus.rsp.opcode.toInt === 0, s"bmbWrite: rsp error (addr=0x${addr.toHexString})")
-    bus.rsp.ready   #= false
+    bus.cmd.valid #= false
+    bus.rsp.ready #= true
+    // Consume and wait until the rsp register is actually empty again —
+    // the next bmbWrite's drain makes this invariant explicit.
+    c = 0
+    while (bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbWrite: rsp not consumed (addr=0x${addr.toHexString})")
+    bus.rsp.ready #= false
   }
 
   // ---- DUT configuration helpers (real firmware register paths) ----
@@ -152,12 +172,28 @@ class I2cSimDriverSim extends AnyFunSuite {
     assert(c < 1000, "slave rxComplete flag not set")
   }
 
+  // Verilator does not guarantee undriven top-level input pins start Low
+  // (observed: a Bmb cmd.valid pin born High re-latches the regmap rsp
+  // register every edge, so a drain that requires cmd.valid=0 can never
+  // finish). Drive every BMB pin Low once at sim start, like the house
+  // TestTop does for the raw I2C pins.
+  private def initBmb(bus: Bmb): Unit = {
+    bus.cmd.valid #= false
+    bus.cmd.opcode #= 0
+    bus.cmd.address #= 0
+    bus.cmd.length #= 0
+    bus.cmd.data #= 0
+    bus.cmd.mask #= 0
+    bus.rsp.ready #= false
+  }
+
   // ---- run helpers: compile + wire the DUT into the simulated interconnects ----
   def runSlave(body: (TopSlave, I2cSimDriver, SimBus) => Unit): Unit = {
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
       .compile(new TopSlave()).doSim { dut =>
         val cd = dut.clockDomain
         cd.forkStimulus(10 ns)
+        initBmb(dut.slaveRegBus)
         val bus = SimBus(new SimInterconnect, new SimInterconnect)
         bus.scl.addHardSlave(dut.slave.io.i2c.scl)
         bus.sda.addHardSlave(dut.slave.io.i2c.sda)
@@ -175,6 +211,8 @@ class I2cSimDriverSim extends AnyFunSuite {
       .compile(new TopMaster()).doSim { dut =>
         val cd = dut.clockDomain
         cd.forkStimulus(10 ns)
+        initBmb(dut.masterRegBus)
+        initBmb(dut.slaveRegBus)
         val bus = SimBus(new SimInterconnect, new SimInterconnect)
         bus.scl.addHardMaster(dut.master.io.i2c.scl)
         bus.scl.addHardSlave(dut.slave.io.i2c.scl)
@@ -270,7 +308,7 @@ class I2cSimDriverSim extends AnyFunSuite {
       sleep(100 ns)
 
       val evts = driver.takeEvents()
-      assert(evts == List(Start, Data(0x50), Ack, Data(0x00), Ack, Stop,
+      assert(evts == List(Start, Data(0x50), Ack, Data(0x00), Ack,
                           Start, Data(0x51), Ack, Data(0x44), Ack, Data(0x55), Nack, Stop),
         s"decoded events=$evts")
       assert(driver.stopCount == 1, s"stopCount=${driver.stopCount}, expected 1 (no stop at the Repeated START)")

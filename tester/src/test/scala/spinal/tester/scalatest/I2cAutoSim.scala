@@ -146,6 +146,19 @@ class I2cAutoSim extends AnyFunSuite {
     startCnt.simPublic(); stopCnt.simPublic()
     when(wireStart) { startCnt := startCnt + U(1) }
     when(wireStop)  { stopCnt  := stopCnt + U(1) }
+    // SCL edge tick history (GAP 7 wire-level timing measurement):
+    // latch a global tick counter at every raw SCL edge. 1 tick = 10 ns
+    // @ 100 MHz core, so tick counts are direct nanosecond measurement.
+    val tickCtr = Reg(UInt(32 bits)) init(0)
+    tickCtr := tickCtr + U(1)
+    val sclEdgeCnt  = Reg(UInt(8 bits)) init(0)
+    val sclEdgeTick = Mem(UInt(32 bits), 128)
+    sclEdgeCnt.simPublic()
+    sclEdgeTick.simPublic()
+    when(sclWire =/= sclWPrev) {
+      sclEdgeTick.write(sclEdgeCnt(6 downto 0), tickCtr)
+      sclEdgeCnt := sclEdgeCnt + U(1)
+    }
     // Phase-1 header snapshot: the sniffer re-arms on every START, so a
     // Repeated-START frame (10-bit read per Fig 15) overwrites the phase-1
     // capture. Latch the previous capture at the 2nd START of a frame so the
@@ -1279,7 +1292,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Request SCL stretch via the STRETCH_REQ register: slave holds SCL Low
       dut.regWriteSlave(0x24, 1)
-      cd.waitActiveEdge(5)
+      // Poll (bounded): the hold engages on the SCL-Low phase per the
+      // conditioner's filtered view, which now commits ~10 ticks after the
+      // raw edge (3-sample window) — a fixed 5-tick wait is phase-dependent.
+      var w2 = 0
+      while (!dut.slave.stretchActive.toBoolean && w2 < 400) { cd.waitActiveEdge(1); w2 += 1 }
       assert(dut.slave.stretchActive.toBoolean, "stretchActive should engage while SCL Low")
 
       // Verify master is stalled (still busy after many cycles - proves it's waiting)
@@ -1329,7 +1346,8 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Hold the bus for a long stretch (>> one bit period)
       dut.regWriteSlave(0x24, 1)
-      cd.waitActiveEdge(5)
+      var w2 = 0
+      while (!dut.slave.stretchActive.toBoolean && w2 < 400) { cd.waitActiveEdge(1); w2 += 1 }
       assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
       cd.waitActiveEdge(400)
       assert(dut.master.status.busy.toBoolean, "master must stall during mid-byte stretch")
@@ -1383,7 +1401,8 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Stretch while the slave holds a data bit on SDA
       dut.regWriteSlave(0x24, 1)
-      cd.waitActiveEdge(5)
+      var w2 = 0
+      while (!dut.slave.stretchActive.toBoolean && w2 < 400) { cd.waitActiveEdge(1); w2 += 1 }
       assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
       cd.waitActiveEdge(400)
       assert(dut.master.status.busy.toBoolean, "master must stall during mid-byte stretch")
@@ -1435,7 +1454,8 @@ class I2cAutoSim extends AnyFunSuite {
       assert(w < 8000, "timed out waiting for write-phase mid-byte window")
 
       dut.regWriteSlave(0x24, 1)
-      cd.waitActiveEdge(5)
+      var w2 = 0
+      while (!dut.slave.stretchActive.toBoolean && w2 < 400) { cd.waitActiveEdge(1); w2 += 1 }
       assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
       cd.waitActiveEdge(400)
       assert(dut.master.status.busy.toBoolean, "master must stall during stretch")
@@ -1487,7 +1507,8 @@ class I2cAutoSim extends AnyFunSuite {
       assert(w < 8000, "timed out waiting for read-phase mid-byte window")
 
       dut.regWriteSlave(0x24, 1)
-      cd.waitActiveEdge(5)
+      var w2 = 0
+      while (!dut.slave.stretchActive.toBoolean && w2 < 400) { cd.waitActiveEdge(1); w2 += 1 }
       assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
       cd.waitActiveEdge(400)
       assert(dut.master.status.busy.toBoolean, "master must stall during stretch")
@@ -2168,10 +2189,17 @@ class I2cAutoSim extends AnyFunSuite {
       dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
-      val rates = Seq(("standard 100kHz", 130, 60), ("fast 400kHz", 32, 16), ("fast+ 1MHz", 10, 10))
-      for ((label, tLow, tHigh) <- rates) {
+      val rates = Seq(
+        ("standard 100kHz", 130, 60, 1),
+        ("fast 400kHz", 32, 16, 1),
+        ("fast+ 1MHz", 10, 10, 0))  // sampDiv=0: the 3-sample window's ~100 ns
+      // commit lag eats the 100 ns SCL-High phase at sampDiv=1, so the finest
+      // sampling is required to keep SDA setup margin at 1 MHz.
+      for ((label, tLow, tHigh, sampDiv) <- rates) {
+        dut.regWriteMaster(0x28, sampDiv)
         dut.regWriteMaster(0x30, tLow)
         dut.regWriteMaster(0x34, tHigh)
+        dut.regWriteSlave(0x1C, sampDiv)
         cd.waitActiveEdge(10)
         dut.regWriteSlave(0x04, 0)  // re-arm slave write pointer (persists across transfers)
         cd.waitActiveEdge(5)
@@ -2545,6 +2573,144 @@ class I2cAutoSim extends AnyFunSuite {
       val mFlag5 = bmbRead(dut.masterRegBus, 0x20, cd)
       assert((mFlag5 & 0x1) == 1, s"master INT_FLAG=0x$mFlag5%x after retigger, expected complete re-set (W1C not sticky)")
       assert(dut.io.irqMaster.toBoolean, "master IRQ must re-raise after retigger (W1C did not disable)")
+    }
+  }
+
+  // ---- GAP 6: Table 9 tSP spike immunity on SCL (true spec stimulus) ----
+  // Control: identical sequence without the dip (isolates the dip as the
+  // only variable against the baseline-green write tests).
+  test("I2cAuto: GAP6 control 2-byte write lands in RAM (no dip)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0x7D)
+      pushTx(dut, 0x5C)
+      dut.issueCmd(addr = 0x28, rw = false, byteCount = 2)
+      waitForIdle(dut)
+      assert(dut.master.status.errCode.toInt == 0, s"errCode=${dut.master.status.errCode.toInt}")
+      assert(dut.slave.ram.getBigInt(0).toInt == 0x7D, s"RAM[0]=0x${dut.slave.ram.getBigInt(0).toInt}%x")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0x5C, s"RAM[1]=0x${dut.slave.ram.getBigInt(1).toInt}%x")
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
+    }
+  }
+
+  test("I2cAuto: SCL dip below tSP during SCL-High is absorbed (Table 9)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0x7D)
+      pushTx(dut, 0x5C)
+      dut.issueCmd(addr = 0x28, rw = false, byteCount = 2)
+
+      // Wait for an SCL-High window. The narrowest High phase in this
+      // transfer is a data-bit High (tHigh = 20 ticks); a dip placed 2
+      // ticks after a rise and lasting 2 ticks fits every High phase.
+      var cycles = 0
+      while (!(dut.master.status.busy.toBoolean && dut.sclWire.toBoolean) && cycles < 20000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      assert(cycles < 20000, "never reached an SCL-High window")
+      cd.waitActiveEdge(2)
+
+      // 2-tick (20 ns @ 100 MHz) SCL dip = Table 9 tSP(Std) exactly.
+      // Narrower than the 3-sample unanimous filter window, so no
+      // filtered SCL edge exists and neither DUT may react.
+      dut.sclForceLow #= true
+      cd.waitActiveEdge(1)
+      assert(!dut.sclWire.toBoolean, "dip must be visible on the raw wire")
+      dut.sclForceLow #= false
+
+      // The full frame (9 addr + 18 data SCL periods x 40 ticks + START/STOP)
+      // takes ~1.2k ticks, so wait for real completion, not a fixed window.
+      var waited = 0
+      while (dut.master.status.busy.toBoolean && waited < 20000) { cd.waitActiveEdge(); waited += 1 }
+      assert(!dut.master.status.busy.toBoolean, s"transfer stalled (err=${dut.master.status.errCode.toInt})")
+      assert(dut.master.status.errCode.toInt == 0, s"errCode=${dut.master.status.errCode.toInt}")
+      assert(dut.slave.ram.getBigInt(0).toInt == 0x7D, "RAM[0] must be intact (no false bit clock)")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0x5C, "RAM[1] must be intact (no false bit clock)")
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
+    }
+  }
+
+  // ---- GAP 7: wire-level timing conformance measurement (Table 10, Std) ----
+  test("I2cAuto: wire-level timing in Std mode fits Table 10 (tLOW/tHIGH, fSCL, Sr segments)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      // Std-mode conformance point @ 100 MHz core: tLOW = tHIGH = 5.2 us.
+      // tLOW >= 4.7 us min, tHIGH >= 4.0 us min, period 10.4 us ->
+      // fSCL <= 100 kHz max: every Table 10 Std bound is satisfied.
+      dut.regWriteMaster(0x28, 1)   // CFG_SAMPDIV
+      dut.regWriteMaster(0x30, 520) // CFG_TLOW  = 5.2 us
+      dut.regWriteMaster(0x34, 520) // CFG_THIGH = 5.2 us
+      dut.regWriteMaster(0x38, 50)  // CFG_TBUF
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      // Composite W+R: the only transfer shape with a Repeated-START, so
+      // the measurement also covers the RESTART0/RESTART3 SCL segments.
+      // The slave data pointer is firmware-owned (NOT reset on STOP):
+      // the write phase stores RAM[0..1], then the read phase starts at
+      // dataPtr=2 — so the read source is pre-loaded at RAM[2..3]
+      // (house pattern, cf. the composite-stretch tests).
+      dut.slave.ram.setBigInt(2, 0x5A)
+      dut.slave.ram.setBigInt(3, 0x3C)
+      pushTx(dut, 0x7D)
+      pushTx(dut, 0x03)
+      dut.issueCmd(addr = 0x28, rw = false, byteCount = 2, phase2 = true,
+                   nackLast = true, p2ByteCount = 2)
+      waitForIdle(dut)
+      assert(dut.master.status.errCode.toInt == 0, s"errCode=${dut.master.status.errCode.toInt}")
+      assert(dut.slave.ram.getBigInt(0).toInt == 0x7D, s"RAM[0]=0x${dut.slave.ram.getBigInt(0).toInt}%x")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0x03, s"RAM[1]=0x${dut.slave.ram.getBigInt(1).toInt}%x")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 2) {
+        rxValues ::= bmbRead(dut.masterRegBus, 0x14, cd) & 0xFF
+      }
+      assert(rxValues.reverse == List(0x5A, 0x3C),
+        s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C)")
+
+      // --- wire-level measurement: 1 tick = 10 ns ---
+      val n = dut.sclEdgeCnt.toInt
+      assert(n >= 100 && n <= 124, s"SCL edge history incomplete: n=$n (expect ~112)")
+      val edges = (0 until n).map(i => dut.sclEdgeTick.getBigInt(i).toInt)
+      // Edge #0 is the START3 SCL fall; segments then alternate
+      // Low (even index) / High (odd index). The trailing post-STOP
+      // SCL-High has no closing edge and is not in the list.
+      val segs  = (0 until n - 1).map(i => edges(i + 1) - edges(i))
+      val lows  = (0 until segs.size).filter(_ % 2 == 0).map(segs(_))
+      val highs = (0 until segs.size).filter(_ % 2 == 1).map(segs(_))
+
+      // (1) Every SCL-Low except the RESTART0 segment is a full-tLow
+      //     data-bit phase: >= 4.7 us = 470 ticks (Table 10 tLOW, Std).
+      val shortLows = lows.filter(_ < 470)
+      assert(shortLows.size == 1, s"expected exactly one short SCL-Low (RESTART0), got $shortLows in $lows")
+      // RESTART0 SCL-Low = tSegQ = tLow/4 = 130 ticks (ticket 04 ruling:
+      // it is not a data bit, so tLOW does not apply to it).
+      assert(shortLows.head >= 100 && shortLows.head <= 200,
+             s"RESTART0 SCL-Low should be ~tLow/4 (130 ticks), got ${shortLows.head}")
+      // (2) Every SCL-High >= 4.0 us = 400 ticks (Table 10 tHIGH, Std).
+      assert(highs.forall(_ >= 400), s"SCL-High below tHIGH min: $highs")
+      // (3) Consecutive (Low, High) periods >= 10 us = 1000 ticks ->
+      //     fSCL <= 100 kHz (Table 10). The Sr region's (130, 1170) pair
+      //     sums to 1300, so it satisfies the same bound.
+      val pairs = (0 until n - 2).filter(_ % 2 == 0).map(i => (edges(i + 1) - edges(i), edges(i + 2) - edges(i + 1)))
+      assert(pairs.nonEmpty, "no (Low, High) periods captured")
+      assert(pairs.forall { case (l, h) => l + h >= 1000 }, s"period below 10 us (fSCL > 100 kHz): $pairs")
+
+      assertWireClean(dut, expectStarts = 2, expectStops = 1)
     }
   }
 }
