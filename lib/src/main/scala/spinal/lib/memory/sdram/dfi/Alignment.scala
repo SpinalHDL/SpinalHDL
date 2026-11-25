@@ -8,6 +8,10 @@ case class Alignment(config: DfiConfig) extends Component {
   val io = new Bundle {
     val input = slave(IDFI(config))
     val output = master(Dfi(config))
+    // NOTE: no ctrlmsg pass-through here. The ctrlmsg channel is a separate top-level port
+    // of DfiController (io.dfiCtrlMsg, driven by CtrlMsgArbiter): the Dfi<>Dfi zip
+    // (alignment.io.output <> io.dfi) neither double-drives nor silently drops it, and
+    // Alignment stays ctrlmsg-agnostic (training does not touch command alignment).
   }
 
   val caAlignment = CAAlignment(config)
@@ -27,4 +31,9 @@ case class Alignment(config: DfiConfig) extends Component {
   rdAlignment.io.inputEn <> io.input.rdEn
   rdAlignment.io.output <> io.output.read
   rdAlignment.io.phaseClear := False
+
+  // dfi_parity_in (DFI status): MC-side CA-parity-enabled indication. This controller does not
+  // implement the PHY parity-reporting handshake, so it idles at 0 (DDR4 CA parity itself is
+  // generated in CAAlignment on dfi_parity, not here).
+  if (config.useParityIn) io.output.status.parityIn.clearAll()
 }
