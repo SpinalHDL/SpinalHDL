@@ -381,6 +381,16 @@ class I2cAutoFuzz extends AnyFunSuite {
           }
         }
 
+        // Verify write phase landed in RAM[0..wLen-1] (pins F-T4: a master
+        // that silently drops the write phase would otherwise pass this test)
+        for (i <- 0 until wLen) {
+          val got = dut.slave.ram.getBigInt(i).toInt
+          if (got != writeData(i)) {
+            failures += 1
+            if (failures <= 5) println(s"  iter=$iter w=$wLen r=$rLen RAM[$i]=0x${got.toHexString} exp=0x${writeData(i).toHexString}")
+          }
+        }
+
         // Cleanup between iterations
         resetBetweenIter(cd, dut)
       }
