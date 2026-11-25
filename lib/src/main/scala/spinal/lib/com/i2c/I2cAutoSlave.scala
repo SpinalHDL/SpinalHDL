@@ -235,7 +235,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   // === Slave address & config ===
 
-  // 10-bit address, standard format (UM10204 §4.2.2): byte0 = 11110 A9 A8 R/W,
+  // 10-bit address, standard format (UM10204 §3.1.11): byte0 = 11110 A9 A8 R/W,
   // byte1 = A7..A0. A[9:8] and R/W are buffered from the first byte; the
   // prefix guard rejects frames lacking the 11110 marker (e.g. 7-bit traffic
   // on a shared bus).

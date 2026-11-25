@@ -57,7 +57,7 @@ object I2cAutoController {
     val ARB_LOSS    = 4
     val BUSY_REJECT = 5
   }
-  /** I2C bus-recovery pulse count (UM10204 §3.4.2). */
+  /** I2C bus-recovery pulse count (UM10204 §3.1.16). */
   val BUS_RECOVERY_PULSES = 9
   /** Bit-width of the runtime-configurable timeout counter. */
   val TIMEOUT_W = 20
@@ -303,24 +303,23 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
     val recovCtr   = Reg(UInt(4 bits)) init(0)
 
     // --- #10: START/STOP setup-hold segments derived from the bit timing ---
-    // The I2C spec's START/STOP setup/hold minima (UM10204 Table 25, e.g.
-    // TSU:STA >= 4.7 us and TSU:STO >= 4.0 us in Standard Mode) map onto the
-    // FSM segments as follows:
-    //   TSU:STA = START1      = tSegQ          (SCL High before SDA falls)
-    //   THD:STA = START3      = tLow           (SDA Low  after  SCL falls)
-    //   TSU:STO = STOP1       = tSegQ          (SCL High before SDA rises)
-    //   THD:STO = STOP0+STOP1 = tSegFull+tSegQ (SDA Low  after  SCL falls)
-    // tSegQ = max(tLow/4, 1) keeps the FSM snappy when tLow is tiny
-    // (simulation), but it GOVERNS TSU:STA/TSU:STO: a fresh START right after
-    // reset/recovery and every Repeated START only enjoy >= tSegQ of SCL-High
-    // setup (a START preceded by a STOP additionally gains the tBuf bus-free
-    // window). Firmware must therefore size tLow so that tSegQ in time
-    // (tSegQ ticks x sampDiv x clk period) meets the target speed mode's
-    // TSU:STA/TSU:STO minima - see README "Timing compliance". No fixed
-    // tick floor is applied in hardware: the spec minima are time-based and
-    // depend on clk/sampDiv, which the RTL intentionally leaves to firmware.
-    // Sum wraps at 2^timerWidth, which merely caps the segment at a plausible
-    // maximum.
+    // The I2C spec's START/STOP setup minima (UM10204 Table 10, e.g.
+    // TSU;STA = 4.7 us and TSU;STO = 4.0 us in Standard Mode; this version
+    // of Table 10 has no tHD;STO row) map onto the FSM segments as follows:
+    //   TSU;STA = START2      = tSegFull       (SDA falls and stays Low while SCL is High)
+    //   THD;STA = START3      = tLow           (SDA Low  after  SCL falls)
+    //   TSU;STO = STOP0       = tSegFull       (SDA Low  across the segment before the STOP forms)
+    // The waveform is compliant at nominal sizing: both setup windows are
+    // tSegFull = tLow + tHigh, which meets the mode's TSU minima whenever
+    // tLow/tHigh themselves meet the mode's tLOW/tHIGH (Table 10). Firmware
+    // must therefore only size tLow/tHigh for the target speed mode - no
+    // extra tLow >= 4x requirement. The tSegQ (tLow/4) SCL-Low segment in
+    // RESTART0 is not a data bit, so the spec's tLOW does not apply to it;
+    // the SCL-Low period after the Sr itself (RESTART3) is a full tLow.
+    // No fixed tick floor is applied in hardware: the spec minima are
+    // time-based and depend on clk/sampDiv, which the RTL intentionally
+    // leaves to firmware. Sum wraps at 2^timerWidth, which merely caps the
+    // segment at a plausible maximum.
     val tSegFull = Mux((io.cfg.tLow +^ io.cfg.tHigh) === U(0), U(1, c.timerWidth bits),
                        (io.cfg.tLow +^ io.cfg.tHigh).resize(c.timerWidth))
     val tSegQ    = Mux(io.cfg.tLow >= U(4), io.cfg.tLow >> 2, U(1, c.timerWidth bits))
@@ -682,7 +681,7 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
       }
     }
 
-    // 9-pulse clock recovery (I2C spec §3.4.2: recover from bus hang)
+    // 9-pulse clock recovery (I2C spec §3.1.16: recover from bus hang)
     // Watchdog note: every exit-tail segment below reloads the watchdog on
     // entry (segments are far shorter than any sane timeout, so the tail
     // cannot self-starve), while STOP1 keeps its full watchdog protection:

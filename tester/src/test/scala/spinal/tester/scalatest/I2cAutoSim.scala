@@ -1035,7 +1035,7 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Wait for the timeout error to latch (fires <=2 cycles into the
       // ~360-cycle recovery window), THEN release the clamp so the full
-      // 9-pulse sequence plays out on the LIVE wires (UM10204 §3.1.17).
+      // 9-pulse sequence plays out on the LIVE wires (UM10204 §3.1.16).
       var cycles = 0
       while (dut.master.status.errCode.toInt != 3 && cycles < 20000) {
         cd.waitActiveEdge()
@@ -1046,7 +1046,7 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Observe recovery on the live wires: >=9 SCL rising edges, master's
       // own SDA driver released (High) throughout, terminated by exactly one
-      // STOP (UM10204 §3.1.17: generate at least nine SCL pulses, then STOP).
+      // STOP (UM10204 §3.1.16: generate at least nine SCL pulses, then STOP).
       val riseBefore = dut.sclRiseCnt.toInt
       val stopBefore = dut.stopCnt.toInt
       cycles = 0
@@ -1055,7 +1055,7 @@ class I2cAutoSim extends AnyFunSuite {
         cycles += 1
       }
       val rises = dut.sclRiseCnt.toInt - riseBefore
-      assert(rises >= 9, s"recovery emitted $rises SCL rising edges, expected >= 9 (UM10204 sec. 3.1.17)")
+      assert(rises >= 9, s"recovery emitted $rises SCL rising edges, expected >= 9 (UM10204 sec. 3.1.16)")
       assert(dut.master.io.i2c.sda.write.toBoolean,
         "master must release SDA (drive High) during recovery pulses")
       // The 9th SCL rise ends RECOV_HI; the wire STOP only appears after
@@ -1105,7 +1105,7 @@ class I2cAutoSim extends AnyFunSuite {
       // address set every slot is writable, so the NACK is modelled externally:
       // sdaKill masks the slave's SDA contribution from the 3rd byte's ACK
       // rising edge onward. Slot count from transfer start: addr 9 + b1 9 +
-      // b2 8 = 26 rises precede the ACK-slot rise (the 36th); the master
+      // b2 8 = 35 rises precede the ACK-slot rise (the 36th); the master
       // samples the filtered line at the END of that High phase, with ample
       // filter-settle margin (tHigh = 20 cycles » 3-sample window).
       pushTx(dut, 0x11)
@@ -1675,7 +1675,7 @@ class I2cAutoSim extends AnyFunSuite {
 
       waitForIdle(dut)
 
-      // Wire-level format check (standard 10-bit, UM10204 §4.2.2):
+      // Wire-level format check (standard 10-bit, UM10204 §3.1.11):
       //   byte0 = 11110 A9 A8 R/W,  byte1 = A7..A0
       val a = 0x345
       val expectB0 = 0xF0 | (((a >> 8) & 0x3) << 1) | 0  // 11110 A9 A8 R/W, R/W = 0 (write)
@@ -1907,7 +1907,7 @@ class I2cAutoSim extends AnyFunSuite {
   //  - errCode=5 busy-reject (G5: CMD during recovery tail was silently dropped)
   //  - 10-bit dual-slave isolation incl. shared low byte (F1 killer asserts)
   //  - 11111 reserved-prefix rejection seen through an independent 7-bit encoder
-  //  - slow-rate smokes at Standard / Fast / Fast-mode Plus rates (G7)
+  //  - varied tick-count smokes at ≈526 kHz / 2.08 MHz / 5 MHz (functional only, G7)
   //  - glitch immunity of the 3-sample filter (G8)
   //  - CMD_P2 cross-slave Sr (F3 functional + legacy repeat negative)
   // =====================================================================
@@ -2176,11 +2176,14 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
-  test("I2cAuto: slow-rate smokes at Standard / Fast / Fast-mode Plus") {
-    // All other tests run at fSCL=2.5MHz, far ABOVE the spec envelope
-    // (G7). These exercise the timing engine + 3-sample filter at the real
-    // spec rates. CFG_TIMEOUT stays 0 (watchdog disabled) so the long
-    // transfers cannot collide with the timeout path.
+  test("I2cAuto: varied tick-count smokes (≈526 kHz / 2.08 MHz / 5 MHz, functional only)") {
+    // All other tests run at fSCL=2.5 MHz, ABOVE the spec envelope
+    // (G7). These exercise the timing engine + 3-sample filter at shorter
+    // tick counts: the actual rates ≈ 526 kHz / 2.08 MHz / 5 MHz each
+    // EXCEED their nominal mode's Table 10 fSCL maximum (100 kHz / 400 kHz /
+    // 1 MHz), so these are functional smokes at varied rates, NOT electrical
+    // conformance of any speed mode. CFG_TIMEOUT stays 0 (watchdog disabled)
+    // so the long transfers cannot collide with the timeout path.
     runSim { dut =>
       val cd = dut.clockDomain
       dut.cfgMasterTiming()
@@ -2190,11 +2193,11 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(10)
 
       val rates = Seq(
-        ("standard 100kHz", 130, 60, 1),
-        ("fast 400kHz", 32, 16, 1),
-        ("fast+ 1MHz", 10, 10, 0))  // sampDiv=0: the 3-sample window's ~100 ns
+        ("≈526 kHz", 130, 60, 1),
+        ("≈2.08 MHz", 32, 16, 1),
+        ("5 MHz", 10, 10, 0))  // sampDiv=0: the 3-sample window's ~100 ns
       // commit lag eats the 100 ns SCL-High phase at sampDiv=1, so the finest
-      // sampling is required to keep SDA setup margin at 1 MHz.
+      // sampling is required to keep SDA setup margin at 5 MHz.
       for ((label, tLow, tHigh, sampDiv) <- rates) {
         dut.regWriteMaster(0x28, sampDiv)
         dut.regWriteMaster(0x30, tLow)
