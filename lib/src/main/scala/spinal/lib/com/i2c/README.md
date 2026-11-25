@@ -128,25 +128,26 @@ are not supported by this design.
 
 ### Timing Compliance (firmware sizing)
 
-The START/STOP setup/hold minima of UM10204 (Table 25) are realized from the
-runtime-configured bit timing, not from fixed hardware constants:
+The START/STOP setup minima of UM10204 Table 10 (tSU;STA = 4.7/0.6/0.26 µs,
+tSU;STO = 4.0/0.6/0.26 µs for Standard / Fast / Fast-mode Plus; this version
+of Table 10 has no tHD;STO row) are realized from the runtime-configured bit
+timing, not from fixed hardware constants:
 
 | Spec parameter | Realized by | Segment |
 |---|---|---|
-| `tSU;STA` (SCL-High before SDA falls) | `tSegQ = max(tLow/4, 1)` filter ticks | START1 |
+| `tSU;STA` (START condition under SCL-High) | `tSegFull = tLow + tHigh` filter ticks | START2 |
 | `tHD;STA` (SDA-Low after SCL falls) | `tLow` | START3 |
-| `tSU;STO` (SCL-High before SDA rises) | `tSegQ` | STOP1 |
-| `tHD;STO` (SDA-Low after SCL falls) | `tSegFull + tSegQ` | STOP0+STOP1 |
+| `tSU;STO` (STOP condition formation) | `tSegFull = tLow + tHigh` | STOP0 |
 
-`TSU:STA` / `TSU:STO` are therefore governed by `tSegQ`. A START preceded by a
-STOP additionally enjoys the `tBuf` bus-free window, but a Repeated START and a
-fresh START right after reset or bus recovery only guarantee `≥ tSegQ` of
-SCL-High setup. Firmware must size `tLow` so that
-`tSegQ × sampDiv × clk_period ≥ max(TSU:STA, TSU:STO)` of the target speed mode
-(e.g. Standard Mode: `TSU:STA ≥ 4.7 µs` → `tLow ≥ ~19 µs`; Fast Mode:
-`≥ 0.6 µs` → `tLow ≥ ~2.4 µs`; consult UM10204 Table 25 for authoritative
-values). The functional test suite uses short tick counts for speed and does
-NOT validate these electrical budgets.
+The waveform is compliant at nominal sizing: both setup windows are
+`tSegFull = tLow + tHigh`, which meets the mode's TSU minima whenever
+`tLow`/`tHigh` meet the mode's `tLOW`/`tHIGH` (Table 10). Firmware must
+therefore only size `tLow`/`tHigh` for the target speed mode — no additional
+`tLow ≥ 4×` requirement exists. The `tSegQ = tLow/4` SCL-Low segment in
+RESTART0 is not a data bit (the spec's `tLOW` does not apply to it); the
+SCL-Low period after the Repeated START itself (RESTART3) is a full `tLow`.
+The functional test suite uses short tick counts for speed and does NOT
+validate these electrical budgets.
 
 ---
 
@@ -213,7 +214,7 @@ below with `io.driveFrom(busCtrl, baseAddress)`.
 
 Set `support10bit = true` in both master and slave Config. The address field
 widens to 10 bits and the master transmits two address bytes in the standard
-I2C format (UM10204 §4.2.2 / IEC 60197):
+I2C format (UM10204 §3.1.11 / IEC 60197):
 
 ```
 Byte 0: 1 1 1 1 0 A[9] A[8] R/W
@@ -307,8 +308,8 @@ Key properties (guaranteed by the factory-side binding):
 | Pre-START bus-free check (UM10204 §3.1.8 AR-1) | Partial: the master rejects a CMD issued while it observes the external bus busy (`errCode=5` BUSY_REJECTED, tracked from START/STOP edges seen after the first accepted transfer). A late JOINER onto an already-active bus still has no re-synchronization path — a documented deviation |
 | 10-bit header acknowledgement (UM10204 §3.1.11 A1/A3) | Fixed: the slave ACKs the first header byte only when the `A9:A8` upper nibble matches its own address and R/W=0 (write header); after a Repeated START, the slave previously addressed in this frame answers the single read-header byte (11110 A9 A8 R/W=1) with A3 and enters the read data phase (Fig 15: one header byte after Sr, not two); non-addressed slaves NACK read-direction headers silently |
 | Arbitration test topology | Covered both ways: SDA-injection tests the LOSER side (passive exit, `errCode=4`); the dual-master contest topology ("0x10 vs 0x30" and mirrored "swapped addresses") verifies the on-wire content decides the winner (lower address wins, §3.1.8 AR-4/5/6/7/11) and that swapping the instances swaps the winner |
-| Speed envelope | All tests run at `tLow=tHigh=20` @100 MHz (≈2.5 MHz SCL) plus the slow-rate smokes above; no test exercises the electrical (ns-voltage) budgets of Tables 9/10 — simulation is purely functional |
-| START/STOP setup/hold (UM10204 Table 25) | Configuration-dependent: `TSU:STA`/`TSU:STO` = `tSegQ = max(tLow/4,1)` ticks; firmware must size `tLow` per the [Timing Compliance](#timing-compliance-firmware-sizing) section. No hardware floor is applied (spec minima are time-based, dependent on clk/sampDiv) |
+| Speed envelope | All tests run at `tLow=tHigh=20` @100 MHz (≈2.5 MHz SCL; 1 tick = 10 ns) plus the varied tick-count smokes above (≈526 kHz / 2.08 MHz / 5 MHz, functional only); no test exercises the electrical (ns-voltage) budgets of Tables 9/10 — simulation is purely functional |
+| START/STOP setup (UM10204 Table 10) | Configuration-dependent: `tSU;STA`/`tSU;STO` = `tSegFull = tLow + tHigh` ticks — compliant whenever `tLow`/`tHigh` meet the mode's `tLOW`/`tHIGH`; no hardware floor is applied (spec minima are time-based, dependent on clk/sampDiv). See [Timing Compliance](#timing-compliance-firmware-sizing) |
 | Same-direction composite (write→write / read→read across Sr) | Not supported: phase-2 direction is hardwired to the inverse of phase 1 (`curRw := !latRw`). Feature boundary of this branch |
 
 ## Testing
