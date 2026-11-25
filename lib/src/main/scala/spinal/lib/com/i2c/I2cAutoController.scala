@@ -278,10 +278,10 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
     // can power up mid-transfer on the bus, arm the tracker earlier (initialize
     // busSeenOnce := True) at the cost of the power-up transient guard above.
     val quad   = Cat(sclSync, sdaSync)  // bit1 = SCL, bit0 = SDA
-    val qPrev  = RegNext(quad) init(0b11)
-    val qPrev2 = RegNext(qPrev) init(0b11)
-    val startEvt = (qPrev2 === 0b11) && (qPrev === 0b10) && (quad === 0b10)
-    val stopEvt  = (qPrev2 === 0b10) && (qPrev === 0b11) && (quad === 0b11)
+    val qPrev  = RegNext(quad) init(B(3, 2 bits))
+    val qPrev2 = RegNext(qPrev) init(B(3, 2 bits))
+    val startEvt = (qPrev2 === B(3, 2 bits)) && (qPrev === B(2, 2 bits)) && (quad === B(2, 2 bits))
+    val stopEvt  = (qPrev2 === B(2, 2 bits)) && (qPrev === B(3, 2 bits)) && (quad === B(3, 2 bits))
     when(!status.busy && busSeenOnce) {
       when(startEvt) { busBusyExt := True }
       when(stopEvt)  { busBusyExt := False }
@@ -865,9 +865,10 @@ class I2cAutoController(c: I2cAutoController.Config) extends Component {
   * Samples the raw (externally-driven) SCL/SDA through a 2-FF synchronizer,
   * then advances a `sampWinSize`-bit history register every `sampDiv` clocks.
   * The filtered output updates only when the ENTIRE window is unanimous
-  * (all-1 -> True, all-0 -> False), so a transient narrower than the window
-  * (`sampWinSize` ticks) cannot propagate. Firmware must size sampDiv x
-  * sampWinSize to cover Table 9 tSP where spike immunity is required.
+  * (all-1 -> True, all-0 -> False); a mixed window holds the previous level,
+  * so a transient narrower than the window (`sampWinSize` samples) cannot
+  * propagate. Firmware must size sampDiv x sampWinSize to cover Table 9 tSP
+  * where spike immunity is required.
   *
   * NOTE: This is NOT timing-equivalent to [[I2cIoFilter]] (used by the legacy
   * I2CSlave/I2cCtrl family). The window indexing and assigned value differ by
@@ -895,14 +896,22 @@ class I2cWireConditioner(
   val sdaHist = RegInit(~U(0, sampWinSize bits).asBits)
 
   when(timer.tick) {
-    sclHist := Cat(sclSync, sclHist(sampWinSize - 2 downto 0))
-    sdaHist := Cat(sdaSync, sdaHist(sampWinSize - 2 downto 0))
+    // Sliding window: newest sample in, oldest (bit 0) out. (The former
+    // `hist(win-2 downto 0)` never shifted bits [win-3:0] — they stayed at
+    // their reset value forever, so the window could never be all-0 and
+    // `andR / nandR` degenerated to tracking the newest sample alone.)
+    sclHist := Cat(sclSync, sclHist(sampWinSize - 1 downto 1))
+    sdaHist := Cat(sdaSync, sdaHist(sampWinSize - 1 downto 1))
     // Unanimous-window update: move the filtered wire only when the whole
-    // window (including the newest sample) agrees. (The former
-    // `andR || nandR` condition was a tautology — the window was dead code.)
+    // window agrees — all-1 -> True, all-0 -> False, MIXED -> hold. (The
+    // former `andR || nandR` condition was a tautology; the follow-up
+    // `andR / elsewhen nandR` was still wrong: nandR is true for any mixed
+    // window too, so every transition — and any transient narrower than
+    // the window — drove the filter Low. norR (all-0) is the correct
+    // opposite of andR.)
     when(sclHist.andR)         { sclFilt := True }
-      .elsewhen(sclHist.nandR) { sclFilt := False }
+      .elsewhen(sclHist.norR) { sclFilt := False }
     when(sdaHist.andR)         { sdaFilt := True }
-      .elsewhen(sdaHist.nandR) { sdaFilt := False }
+      .elsewhen(sdaHist.norR) { sdaFilt := False }
   }
 }
