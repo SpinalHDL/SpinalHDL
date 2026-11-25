@@ -323,19 +323,24 @@ class I2cSimDriver(
       stopCountPrivate += 1
 
     case OpRestart =>
-      sdaConn.write(false)
-      waitWire(() => !sdaWire.level, "SDA fall for Repeated START")
+      // SCL is already Low (previous bit's low phase). Hold it Low for a full
+      // tLow so the peer commits the SCL fall and releases SDA, then issue
+      // the Repeated START: SCL rises, SDA falls while SCL High, SCL falls.
+      // (Pulsing SDA Low->High->Low while SCL High, as the old sequence did,
+      // is a STOP+START on the wire, not a Repeated START.)
+      sclConn.write(false)
+      waitWire(() => !sclWire.level, "SCL fall for Repeated START")
+      sleep(tLow)
+      waitWire(() => sdaWire.level, "SDA release before Repeated START")
+      sdaConn.write(true)
       sclConn.write(true)
       waitWire(() => sclWire.level, "SCL rise for Repeated START")
-      sleep(tHdSto)
-      sdaConn.write(true)
-      waitWire(() => sdaWire.level, "SDA rise for Repeated START")
       sleep(tSuSta)
-      sdaConn.write(false)
+      sdaConn.write(false)  // Sr: SDA falls while SCL High
       waitWire(() => !sdaWire.level, "SDA fall for Repeated START")
       sleep(tSuSta)
       sclConn.write(false)
-      waitWire(() => !sclWire.level, "SCL fall for Repeated START")
+      waitWire(() => !sclWire.level, "SCL fall after Repeated START")
 
     case OpBit(value, drive, follow) =>
       if (follow) {
