@@ -5,7 +5,8 @@ import spinal.lib.bus.amba3.ahblite.AhbLite3
 import spinal.lib.bus.misc.SizeMapping
 
 case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName)  extends BusIf{
-  override val withStrb: Boolean = false
+  // AHB-Lite has no WSTRB, HSIZE + HADDR define the byte lanes
+  override val withStrb: Boolean = true
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth
 
@@ -17,8 +18,6 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
   val wstrb: Bits = withStrb generate (Bits(strbWidth bit))
   val wmask: Bits = withStrb generate (Bits(busDataWidth bit))
   val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
-  initStrbMasks()
-  override def getModuleName = moduleName.name
 
   val writeData: Bits  = bus.HWDATA
 
@@ -27,12 +26,17 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
   val doWrite     = bus.HREADY & RegNext(askWrite, False)
   val doRead      = bus.HREADY & askRead
 
+  // Registered: at the write cycle HADDR / HSIZE already hold the next transfer
+  withStrb generate (wstrb := RegNextWhen(bus.writeMask, askWrite))
+  initStrbMasks()
+
+  override def getModuleName = moduleName.name
+
   val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
 
   bus.HRDATA    := bus_rdata
 
   val bus_err =  this.bus_slverr
-  bus_err.clearWhen(bus_err)
 
   val readError_2ndcycle = RegNext(bus_err) init False
 
@@ -47,8 +51,9 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
     bus.HRESP     := False
   }
 
-  def readAddress():UInt   = bus.HADDR
-  def writeAddress(): UInt = addressDelay
+  // Word aligned, the byte lanes inside the register are handled by wmask
+  def readAddress():UInt   = (bus.HADDR >> underbitWidth) << underbitWidth
+  def writeAddress(): UInt = (addressDelay >> underbitWidth) << underbitWidth
 
   def readHalt(): Unit  = bus.HREADY === False
   def writeHalt(): Unit = bus.HREADY === False
